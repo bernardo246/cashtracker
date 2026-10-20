@@ -50,18 +50,20 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     opts.onSessionLost();
   };
 
-  async function send(path: string, init: RequestOptions = {}): Promise<Response> {
+  async function send(path: string, init: RequestOptions = {}): Promise<{ res: Response; sent: string | null }> {
     const { json, headers: h, ...rest } = init;
     const headers = new Headers(h);
     if (json !== undefined) headers.set("content-type", "application/json");
-    if (token) headers.set("authorization", `Bearer ${token}`);
+    const sent = token;
+    if (sent) headers.set("authorization", `Bearer ${sent}`);
     try {
-      return await doFetch(`/api${path}`, {
+      const res = await doFetch(`/api${path}`, {
         ...rest,
         headers,
         credentials: "same-origin",
         body: json !== undefined ? JSON.stringify(json) : rest.body,
       });
+      return { res, sent };
     } catch {
       throw new ApiError(0, "NETWORK_ERROR", NETWORK_MESSAGE);
     }
@@ -78,20 +80,18 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     throw new ApiError(res.status, e?.code ?? "UNKNOWN", e?.message ?? "Erro inesperado.", e?.fields);
   }
 
-  function refresh(): Promise<AuthResponse | null> {
+  // Só 401/403 significam "sem sessão"; qualquer outra falha propaga e mantém o token.
+  function refreshShared(): Promise<AuthResponse | null> {
     inflightRefresh ??= (async () => {
       try {
-        const res = await send("/auth/refresh", { method: "POST" });
-        if (!res.ok) {
+        const { res } = await send("/auth/refresh", { method: "POST" });
+        if (res.status === 401 || res.status === 403) {
           token = null;
           return null;
         }
-        const data = (await res.json()) as AuthResponse;
+        const data = await parse<AuthResponse>(res);
         setAccessToken(data.accessToken);
         return data;
-      } catch {
-        token = null;
-        return null;
       } finally {
         inflightRefresh = null;
       }
@@ -100,30 +100,39 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
   }
 
   async function run<T>(path: string, init?: RequestOptions): Promise<T> {
-    const res = await send(path, init);
+    const { res, sent } = await send(path, init);
     if (res.status !== 401 || path.startsWith("/auth/")) return parse<T>(res);
-    if (!(await refresh())) {
-      notifyLost();
-      return parse<T>(res);
+    // Outro pedido já renovou o token enquanto este estava em voo: repete sem novo refresh.
+    if (token === null || token === sent) {
+      if (!(await refreshShared())) {
+        notifyLost();
+        return parse<T>(res);
+      }
     }
-    const retry = await send(path, init);
-    if (retry.status === 401) notifyLost();
+    const retry = (await send(path, init)).res;
+    if (retry.status === 401) {
+      token = null;
+      notifyLost();
+    }
     return parse<T>(retry);
   }
 
-  async function request<T>(path: string, init?: RequestOptions): Promise<T> {
+  async function tracked<T>(fn: () => Promise<T>): Promise<T> {
     let slow = false;
     const timer = setTimeout(() => {
       slow = true;
       if (slowCount++ === 0) opts.onSlow?.(true);
     }, slowAfterMs);
     try {
-      return await run<T>(path, init);
+      return await fn();
     } finally {
       clearTimeout(timer);
       if (slow && --slowCount === 0) opts.onSlow?.(false);
     }
   }
+
+  const refresh = () => tracked(refreshShared);
+  const request = <T,>(path: string, init?: RequestOptions) => tracked(() => run<T>(path, init));
 
   return { request, setAccessToken, refresh };
 }

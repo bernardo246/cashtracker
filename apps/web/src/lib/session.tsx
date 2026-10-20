@@ -22,6 +22,8 @@ export interface Session {
   api: ApiClient;
 }
 
+const RESTORE_BACKOFF_MS = [1000, 2000, 4000];
+
 const SessionContext = createContext<Session | null>(null);
 
 export function SessionProvider({ children, onSlow }: { children: ReactNode; onSlow?: (slow: boolean) => void }) {
@@ -41,11 +43,24 @@ export function SessionProvider({ children, onSlow }: { children: ReactNode; onS
 
   useEffect(() => {
     let active = true;
-    void api.refresh().then((data) => {
+    const settle = (data: AuthResponse | null) => {
       if (!active) return;
       setUser(data?.user ?? null);
       setStatus(data ? "authenticated" : "anonymous");
-    });
+    };
+    // Falhas transitórias (rede/5xx/429): até 3 novas tentativas com 1s, 2s, 4s.
+    void (async () => {
+      for (let attempt = 0; ; attempt++) {
+        try {
+          settle(await api.refresh());
+          return;
+        } catch {
+          if (attempt >= RESTORE_BACKOFF_MS.length) return settle(null);
+          await new Promise((r) => setTimeout(r, RESTORE_BACKOFF_MS[attempt]));
+          if (!active) return;
+        }
+      }
+    })();
     return () => {
       active = false;
     };
@@ -67,6 +82,8 @@ export function SessionProvider({ children, onSlow }: { children: ReactNode; onS
   const logout = useCallback(async () => {
     try {
       await api.request("/auth/logout", { method: "POST" });
+    } catch (err) {
+      console.warn("Falha ao encerrar a sessão no servidor", err);
     } finally {
       api.setAccessToken(null);
       setUser(null);

@@ -153,4 +153,59 @@ describe("createApiClient", () => {
       message: "Sem conexão. Tente novamente.",
     });
   });
+
+  it("401 atrasado com token antigo repete sem novo refresh", async () => {
+    const fetchFn = mockFetch((url, init) => {
+      if (url === "/api/auth/refresh") return json(200, { accessToken: "new", user });
+      if (authOf(init) === "Bearer new") return json(200, { ok: true });
+      if (url === "/api/a") return new Promise((r) => setTimeout(() => r(apiError(401, "INVALID_TOKEN")), 100));
+      return apiError(401, "INVALID_TOKEN");
+    });
+    const api = createApiClient({ fetchFn: asFetch(fetchFn), onSessionLost: vi.fn() });
+    api.setAccessToken("old");
+    const pa = api.request("/a");
+    await api.request("/b");
+    await vi.advanceTimersByTimeAsync(150);
+    await expect(pa).resolves.toEqual({ ok: true });
+    expect(fetchFn.mock.calls.filter(([u]) => u === "/api/auth/refresh")).toHaveLength(1);
+  });
+
+  it("refresh com 503 propaga o erro, mantém o token e não chama onSessionLost", async () => {
+    const fetchFn = mockFetch((url, init) =>
+      url === "/api/auth/refresh"
+        ? apiError(503, "UNAVAILABLE")
+        : authOf(init) === "Bearer old"
+          ? apiError(401, "INVALID_TOKEN")
+          : json(200, {}),
+    );
+    const onSessionLost = vi.fn();
+    const api = createApiClient({ fetchFn: asFetch(fetchFn), onSessionLost });
+    api.setAccessToken("old");
+    await expect(api.request("/a")).rejects.toMatchObject({ status: 503 });
+    expect(onSessionLost).not.toHaveBeenCalled();
+    await expect(api.request("/b")).rejects.toMatchObject({ status: 503 }); // ainda usa o token antigo
+  });
+
+  it("refresh público passa pelo onSlow", async () => {
+    const fetchFn = mockFetch(
+      () => new Promise<Response>((r) => setTimeout(() => r(json(200, { accessToken: "t", user })), 3500)),
+    );
+    const onSlow = vi.fn();
+    const api = createApiClient({ fetchFn: asFetch(fetchFn), onSessionLost: vi.fn(), onSlow });
+    const p = api.refresh();
+    await vi.advanceTimersByTimeAsync(3600);
+    await p;
+    expect(onSlow.mock.calls).toEqual([[true], [false]]);
+  });
+
+  it("retry ainda 401 limpa o token", async () => {
+    const fetchFn = mockFetch((url) =>
+      url === "/api/auth/refresh" ? json(200, { accessToken: "n", user }) : apiError(401, "INVALID_TOKEN"),
+    );
+    const api = createApiClient({ fetchFn: asFetch(fetchFn), onSessionLost: vi.fn() });
+    await expect(api.request("/a")).rejects.toBeInstanceOf(ApiError);
+    await api.request("/b").catch(() => undefined);
+    const last = fetchFn.mock.calls.at(-1)?.[1];
+    expect(authOf(last ?? {})).toBe("Bearer n"); // refresh renovou de novo; token anterior havia sido limpo
+  });
 });
