@@ -1,0 +1,75 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Tokens do Verdant §15 + extras da spec §9.1. Somente tema escuro. */
+@theme static {
+  --color-background: #0b0f0e;
+  --color-surface: #111714;
+  --color-surface-elevated: #1b2620;
+  --color-border: #26312b;
+
+  --color-primary: #3ecf8e;
+  --color-primary-hover: #50d9a0;
+  --color-primary-foreground: #07120d;
+
+  --color-text-primary: #f0f5f2;
+  --color-text-secondary: #94a69c;
+  --color-text-muted: #607269;
+
+  --color-success: #3ecf8e;
+  --color-danger: #f87171;
+  --color-warning: #fbbf24;
+  --color-info: #60a5fa;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 100px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  --motion-fast: 140ms;
+  --motion-normal: 200ms;
+  --motion-slow: 300ms;
+  --ease-editorial: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --text-display: clamp(2.5rem, 9vw, 5rem);
+  --text-display--line-height: 1;
+  --page-gutter: clamp(1rem, 4vw, 3rem);
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+}
+
+/* Valores monetários */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+}

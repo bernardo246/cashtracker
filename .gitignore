@@ -34,3 +34,6 @@ pnpm-debug.log*
 coverage/
 playwright-report/
 test-results/
+
+# Next.js (gerado)
+next-env.d.ts
