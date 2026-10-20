@@ -114,4 +114,42 @@ describe("refresh tokens", () => {
     expect(await store.rotate(a.token)).toEqual({ status: "invalid" });
     expect(await store.rotate(b.token)).toEqual({ status: "invalid" });
   });
+
+  it("reuso de t1 concorrente com rotação de t2: nenhum token da família sobrevive", async () => {
+    for (let i = 0; i < 8; i++) {
+      await resetDb(sql);
+      clock = new Date("2026-01-01T00:00:00Z");
+      const [u] = await db.insert(users).values({ email: `r${i}@b.com`, name: "A" }).returning();
+      const t1 = await store.issue(u!.id);
+      const r2 = await store.rotate(t1.token);
+      if (r2.status !== "rotated") throw new Error("esperava rotated");
+      advance(31_000);
+      await Promise.all([store.rotate(r2.token), store.rotate(t1.token)]);
+      const rows = await db.select().from(refreshTokens);
+      expect(rows.length).toBeGreaterThanOrEqual(2);
+      expect(rows.every((x) => x.revokedAt !== null)).toBe(true);
+    }
+  });
+
+  it("logout (revokeFamilyByToken) concorrente com refresh: nenhum token vivo", async () => {
+    for (let i = 0; i < 8; i++) {
+      await resetDb(sql);
+      const [u] = await db.insert(users).values({ email: `l${i}@b.com`, name: "A" }).returning();
+      const t1 = await store.issue(u!.id);
+      await Promise.all([store.rotate(t1.token), store.revokeFamilyByToken(t1.token)]);
+      const rows = await db.select().from(refreshTokens);
+      expect(rows.every((x) => x.revokedAt !== null)).toBe(true);
+    }
+  });
+
+  it("revokeAllForUser concorrente com refresh: nenhum token vivo", async () => {
+    for (let i = 0; i < 8; i++) {
+      await resetDb(sql);
+      const [u] = await db.insert(users).values({ email: `u${i}@b.com`, name: "A" }).returning();
+      const t1 = await store.issue(u!.id);
+      await Promise.all([store.rotate(t1.token), store.revokeAllForUser(u!.id)]);
+      const rows = await db.select().from(refreshTokens);
+      expect(rows.every((x) => x.revokedAt !== null)).toBe(true);
+    }
+  });
 });

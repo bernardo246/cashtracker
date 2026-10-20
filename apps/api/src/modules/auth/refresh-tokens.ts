@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import type { Db } from "../../db/client.js";
 import { refreshTokens } from "../../db/schema.js";
 
@@ -17,6 +17,11 @@ const newToken = () => randomBytes(32).toString("base64url");
 
 export function createRefreshTokenStore(db: Db, now: () => Date = () => new Date()) {
   type Executor = Pick<Db, "insert" | "update" | "select">;
+  type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+
+  // Serializa rotação/revogação por usuário: nenhum sucessor sobrevive a uma revogação concorrente.
+  const lockUser = (tx: Tx, userId: string) =>
+    tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${userId}::text))`);
 
   async function insertToken(
     tx: Executor,
@@ -50,6 +55,13 @@ export function createRefreshTokenStore(db: Db, now: () => Date = () => new Date
     /** Spec §6.2. A linha fica travada (FOR UPDATE) até o commit, então rotações concorrentes se serializam. */
     rotate(token: string, userAgent?: string): Promise<RotateResult> {
       return db.transaction(async (tx): Promise<RotateResult> => {
+        const [probe] = await tx
+          .select({ userId: refreshTokens.userId })
+          .from(refreshTokens)
+          .where(eq(refreshTokens.tokenHash, sha256(token)));
+        if (!probe) return { status: "invalid" };
+        await lockUser(tx, probe.userId);
+        // releitura após o lock: enxerga revogações já commitadas (READ COMMITTED)
         const [row] = await tx
           .select()
           .from(refreshTokens)
@@ -79,22 +91,33 @@ export function createRefreshTokenStore(db: Db, now: () => Date = () => new Date
     },
 
     async revokeFamilyByToken(token: string): Promise<void> {
-      const [row] = await db
-        .select({ familyId: refreshTokens.familyId })
-        .from(refreshTokens)
-        .where(eq(refreshTokens.tokenHash, sha256(token)));
-      if (!row) return;
-      await db
-        .update(refreshTokens)
-        .set({ revokedAt: now() })
-        .where(and(eq(refreshTokens.familyId, row.familyId), isNull(refreshTokens.revokedAt)));
+      await db.transaction(async (tx) => {
+        const [probe] = await tx
+          .select({ userId: refreshTokens.userId })
+          .from(refreshTokens)
+          .where(eq(refreshTokens.tokenHash, sha256(token)));
+        if (!probe) return;
+        await lockUser(tx, probe.userId);
+        const [row] = await tx
+          .select({ familyId: refreshTokens.familyId })
+          .from(refreshTokens)
+          .where(eq(refreshTokens.tokenHash, sha256(token)));
+        if (!row) return;
+        await tx
+          .update(refreshTokens)
+          .set({ revokedAt: now() })
+          .where(and(eq(refreshTokens.familyId, row.familyId), isNull(refreshTokens.revokedAt)));
+      });
     },
 
     async revokeAllForUser(userId: string): Promise<void> {
-      await db
-        .update(refreshTokens)
-        .set({ revokedAt: now() })
-        .where(and(eq(refreshTokens.userId, userId), isNull(refreshTokens.revokedAt)));
+      await db.transaction(async (tx) => {
+        await lockUser(tx, userId);
+        await tx
+          .update(refreshTokens)
+          .set({ revokedAt: now() })
+          .where(and(eq(refreshTokens.userId, userId), isNull(refreshTokens.revokedAt)));
+      });
     },
   };
 }
