@@ -3,7 +3,10 @@
 Aplicação web (PWA, mobile-first) para registrar **entradas e saídas de dinheiro** por categoria e acompanhar a vida financeira em dashboards.
 
 > **Status:** em fase de design. Nenhum código de produto foi escrito ainda.
-> Este README registra as decisões já aprovadas; a especificação completa ficará em `docs/superpowers/specs/` e o plano de implementação em `docs/superpowers/plans/`.
+> Este README registra as decisões já aprovadas. Documentos detalhados:
+> - Especificação: [`docs/superpowers/specs/2026-10-19-cash-tracker-design.md`](docs/superpowers/specs/2026-10-19-cash-tracker-design.md)
+> - Configuração do Google OAuth: [`docs/setup-google-oauth.md`](docs/setup-google-oauth.md)
+> - Plano de implementação: `docs/superpowers/plans/` (a criar)
 
 ---
 
@@ -99,7 +102,7 @@ As versões exatas serão travadas no plano de implementação, conferindo **zer
 | 13 | **Somente BRL** | Escopo da v1 | Multi-moeda |
 | 14 | **Categorias arquivadas, não excluídas**, quando têm lançamentos | Preserva o histórico dos gráficos de meses passados | Exclusão em cascata |
 | 15 | **Isolamento por `user_id` do JWT em toda consulta** | Um usuário nunca acessa dados de outro | RLS do Supabase (desnecessário, pois só a API acessa o banco) |
-| 16 | **Ping de keep-alive gratuito** (cron-job.org → `/health` a cada 10 min) | O Render free dorme após 15 min, e acordar leva ~50s. As 750 h/mês grátis cobrem 1 serviço 24/7 | Aceitar o cold start |
+| 16 | **Ping de keep-alive gratuito** (cron-job.org → `https://<app>.vercel.app/api/health` a cada 10 min; o `/health` faz `SELECT 1`, mantendo também o Supabase ativo) | O Render free dorme após 15 min, e acordar leva ~50s. As 750 h/mês grátis cobrem 1 serviço 24/7 | Aceitar o cold start |
 | 17 | **PWA** em vez de app nativo | Instalável sem App Store/Play Store e sem custo | React Native / lojas |
 | 18 | **Somente tema escuro** | Segue o Verdant (dark-first); um tema só reduz estados a testar | Claro + escuro |
 
@@ -143,7 +146,7 @@ As versões exatas serão travadas no plano de implementação, conferindo **zer
 - Senhas com **argon2id**.
 - **Esqueceu a senha:** o usuário informa o e-mail. A API responde sempre a mesma mensagem (não revela se o e-mail existe) e, se existir, envia via Brevo um link com token aleatório (hash no banco, 30 min, uso único). Ao redefinir, todas as sessões do usuário são revogadas.
 
-> Os detalhes de vinculação de contas, rate limiting e configuração do Google Cloud serão documentados na spec e no guia de configuração.
+> Vinculação de contas, rotação de refresh token, CSRF e rate limiting: ver a spec (§6). Configuração do Google Cloud: [`docs/setup-google-oauth.md`](docs/setup-google-oauth.md).
 
 ---
 
