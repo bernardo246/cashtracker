@@ -11,6 +11,8 @@ import { createConsoleSender } from "./email/console.js";
 import type { EmailSender } from "./email/email-sender.js";
 import { registerAuthGuard } from "./http/auth-guard.js";
 import { registerErrorHandler } from "./http/errors.js";
+import { categoryRoutes } from "./modules/categories/categories.routes.js";
+import { createCategoryService } from "./modules/categories/categories.service.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { createAuthService } from "./modules/auth/auth.service.js";
 import { createGoogleClient, DEFAULT_GOOGLE_ENDPOINTS, type GoogleEndpoints } from "./modules/auth/google-client.js";
@@ -108,6 +110,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     google: createGoogleClient(deps.env, deps.google ?? DEFAULT_GOOGLE_ENDPOINTS, fetch, deps.now),
     refreshTokens,
   });
+
+  await app.register(categoryRoutes, { env: deps.env, categories: createCategoryService(deps.db, deps.now) });
 
   return app;
 }
