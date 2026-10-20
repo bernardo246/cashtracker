@@ -23,6 +23,8 @@ export type AppDeps = {
   sql: postgres.Sql;
   emailSender?: EmailSender;
   now?: () => Date;
+  onBackgroundTask?: (task: Promise<unknown>) => void; // testes aguardam trabalho em segundo plano
+  logStream?: { write(msg: string): void }; // testes capturam logs
   google?: unknown; // GoogleEndpoints entra na Tarefa 8
 };
 
@@ -36,6 +38,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
       level: deps.env.LOG_LEVEL,
+      ...(deps.logStream && { stream: deps.logStream }),
       redact: [
         "req.headers.authorization",
         "req.headers.cookie",
@@ -75,6 +78,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     auth: createAuthService(deps.db, deps.now),
     jwt,
     refreshTokens,
+    onBackgroundTask: deps.onBackgroundTask,
     passwordReset: createPasswordResetService({
       db: deps.db,
       emailSender,

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { buildTestApp, closeTestApps, resetDb } from "../helpers/app.js";
+import { buildTestApp, closeTestApps, resetDb, testEnv } from "../helpers/app.js";
 import { H, registerUser } from "../helpers/users.js";
 
 afterEach(closeTestApps);
@@ -7,7 +7,11 @@ afterEach(closeTestApps);
 type T = Awaited<ReturnType<typeof buildTestApp>>;
 const post = (app: T["app"], url: string, payload: unknown) =>
   app.inject({ method: "POST", url, headers: H, payload: payload as object });
-const forgot = (app: T["app"], email: string) => post(app, "/auth/forgot-password", { email });
+const forgot = async (app: T["app"], email: string, flush: () => Promise<void>) => {
+  const res = await post(app, "/auth/forgot-password", { email });
+  await flush();
+  return res;
+};
 const tokenFrom = (text: string): string => new URL(/https?:\S+/.exec(text)![0]).searchParams.get("token")!;
 const NEW_PASSWORD = "nova-senha-456";
 
@@ -18,17 +22,17 @@ describe("auth: redefinição de senha", () => {
   });
 
   it("forgot com e-mail inexistente → 202 e nenhum e-mail", async () => {
-    const { app, emails } = await buildTestApp();
-    const res = await forgot(app, "ninguem@x.com");
+    const { app, emails, flushBackground } = await buildTestApp();
+    const res = await forgot(app, "ninguem@x.com", flushBackground);
     expect(res.statusCode).toBe(202);
     expect(res.json()).toEqual({ message: "Se o e-mail existir, enviamos um link" });
     expect(emails).toHaveLength(0);
   });
 
   it("forgot com e-mail existente → 202 e e-mail com link", async () => {
-    const { app, emails, deps } = await buildTestApp();
+    const { app, emails, deps, flushBackground } = await buildTestApp();
     const { user } = await registerUser(app, { email: "ana@x.com" });
-    const res = await forgot(app, "ana@x.com");
+    const res = await forgot(app, "ana@x.com", flushBackground);
     expect(res.statusCode).toBe(202);
     expect(res.json()).toEqual({ message: "Se o e-mail existir, enviamos um link" });
     expect(emails).toHaveLength(1);
@@ -43,15 +47,15 @@ describe("auth: redefinição de senha", () => {
   });
 
   it("falha do provedor de e-mail não afeta a resposta 202", async () => {
-    const { app } = await buildTestApp({ emailSender: { send: () => Promise.reject(new Error("brevo fora do ar")) } });
+    const { app, flushBackground } = await buildTestApp({ emailSender: { send: () => Promise.reject(new Error("brevo fora do ar")) } });
     await registerUser(app, { email: "ana@x.com" });
-    expect((await forgot(app, "ana@x.com")).statusCode).toBe(202);
+    expect((await forgot(app, "ana@x.com", flushBackground)).statusCode).toBe(202);
   });
 
   it("reset válido troca a senha, marca email_verified e revoga sessões", async () => {
-    const { app, emails, deps } = await buildTestApp();
+    const { app, emails, deps, flushBackground } = await buildTestApp();
     const { cookie, user } = await registerUser(app, { email: "ana@x.com" });
-    await forgot(app, "ana@x.com");
+    await forgot(app, "ana@x.com", flushBackground);
     const res = await post(app, "/auth/reset-password", { token: tokenFrom(emails[0]!.text), password: NEW_PASSWORD });
     expect(res.statusCode).toBe(200);
 
@@ -64,9 +68,9 @@ describe("auth: redefinição de senha", () => {
   });
 
   it("token usado de novo → 400 'Link inválido ou expirado'", async () => {
-    const { app, emails } = await buildTestApp();
+    const { app, emails, flushBackground } = await buildTestApp();
     await registerUser(app, { email: "ana@x.com" });
-    await forgot(app, "ana@x.com");
+    await forgot(app, "ana@x.com", flushBackground);
     const token = tokenFrom(emails[0]!.text);
     await post(app, "/auth/reset-password", { token, password: NEW_PASSWORD });
     const res = await post(app, "/auth/reset-password", { token, password: "outra-senha-789" });
@@ -86,9 +90,9 @@ describe("auth: redefinição de senha", () => {
 
   it("token após 30 min → 400", async () => {
     let offsetMs = 0;
-    const { app, emails } = await buildTestApp({ now: () => new Date(Date.now() + offsetMs) });
+    const { app, emails, flushBackground } = await buildTestApp({ now: () => new Date(Date.now() + offsetMs) });
     await registerUser(app, { email: "ana@x.com" });
-    await forgot(app, "ana@x.com");
+    await forgot(app, "ana@x.com", flushBackground);
     offsetMs = 31 * 60_000;
     const res = await post(app, "/auth/reset-password", { token: tokenFrom(emails[0]!.text), password: NEW_PASSWORD });
     expect(res.statusCode).toBe(400);
@@ -96,10 +100,10 @@ describe("auth: redefinição de senha", () => {
   });
 
   it("novo forgot invalida o token anterior", async () => {
-    const { app, emails } = await buildTestApp();
+    const { app, emails, flushBackground } = await buildTestApp();
     await registerUser(app, { email: "ana@x.com" });
-    await forgot(app, "ana@x.com");
-    await forgot(app, "ana@x.com");
+    await forgot(app, "ana@x.com", flushBackground);
+    await forgot(app, "ana@x.com", flushBackground);
     expect(emails).toHaveLength(2);
     const old = await post(app, "/auth/reset-password", { token: tokenFrom(emails[0]!.text), password: NEW_PASSWORD });
     expect(old.statusCode).toBe(400);
@@ -108,13 +112,13 @@ describe("auth: redefinição de senha", () => {
   });
 
   it("conta só-Google consegue definir senha via reset", async () => {
-    const { app, emails, deps } = await buildTestApp();
+    const { app, emails, deps, flushBackground } = await buildTestApp();
     const { accessToken, user } = await registerUser(app, { email: "g@x.com" });
     await deps.sql`UPDATE app.users SET password_hash = NULL WHERE id = ${user.id}`;
     const before = await app.inject({ method: "GET", url: "/me", headers: { authorization: `Bearer ${accessToken}` } });
     expect(before.json<{ hasPassword: boolean }>().hasPassword).toBe(false);
 
-    await forgot(app, "g@x.com");
+    await forgot(app, "g@x.com", flushBackground);
     const res = await post(app, "/auth/reset-password", { token: tokenFrom(emails[0]!.text), password: NEW_PASSWORD });
     expect(res.statusCode).toBe(200);
     const after = await app.inject({ method: "GET", url: "/me", headers: { authorization: `Bearer ${accessToken}` } });
@@ -130,11 +134,43 @@ describe("auth: redefinição de senha", () => {
   });
 });
 
+describe("auth: forgot-password em segundo plano", () => {
+  it("responde 202 antes do envio terminar; falha é logada sem o token", async () => {
+    const { deps } = await buildTestApp();
+    await resetDb(deps.sql);
+    let release!: () => void;
+    let sentText = "";
+    const gate = new Promise<void>((r) => (release = r));
+    const logs: string[] = [];
+    const t = await buildTestApp({
+      env: testEnv({ LOG_LEVEL: "error" }),
+      logStream: { write: (m) => void logs.push(m) },
+      emailSender: {
+        send: async (msg) => {
+          sentText = msg.text;
+          await gate;
+          throw new Error("brevo fora do ar");
+        },
+      },
+    });
+    await registerUser(t.app, { email: "ana@x.com" });
+    const res = await post(t.app, "/auth/forgot-password", { email: "ana@x.com" });
+    expect(res.statusCode).toBe(202); // enviou resposta com o envio ainda pendente
+    expect(logs).toHaveLength(0);
+    // espera o envio ser chamado (a busca/tx rodam em segundo plano), depois libera
+    while (sentText === "") await new Promise((r) => setImmediate(r));
+    release();
+    await t.flushBackground();
+    const out = logs.join("");
+    expect(out).toContain("brevo fora do ar");
+    expect(out).not.toContain(tokenFrom(sentText));
+  });
+});
+
 describe("auth: rate limit do forgot-password", () => {
   it("4º pedido para o mesmo e-mail na hora → 429 (mesmo trocando de IP)", async () => {
     const { deps } = await buildTestApp();
     await resetDb(deps.sql);
-    const { testEnv } = await import("../helpers/app.js");
     const { app } = await buildTestApp({ env: testEnv({ RATE_LIMIT_ENABLED: "true", TRUST_PROXY_HOPS: "1" }) });
     const codes: number[] = [];
     for (let i = 0; i < 4; i++) {

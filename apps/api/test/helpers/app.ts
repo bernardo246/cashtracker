@@ -42,19 +42,25 @@ export async function buildTestApp(overrides: Partial<AppDeps> = {}): Promise<{
   app: FastifyInstance;
   deps: AppDeps;
   emails: EmailMessage[];
+  /** aguarda o trabalho em segundo plano (e-mail de reset) — sem sleeps */
+  flushBackground: () => Promise<void>;
 }> {
   const env = overrides.env ?? testEnv();
   const { db, sql, close } = createDb(env.DATABASE_URL);
   const emails: EmailMessage[] = [];
   // registra de forma síncrona na chamada de send: testes não precisam de sleeps
   const emailSender = { send: (msg: EmailMessage) => (emails.push(msg), Promise.resolve()) };
-  const deps: AppDeps = { env, db, sql, emailSender, ...overrides };
+  const tasks: Promise<unknown>[] = [];
+  const deps: AppDeps = { env, db, sql, emailSender, onBackgroundTask: (t) => void tasks.push(t), ...overrides };
   const app = await buildApp(deps);
   app.addHook("onClose", async () => {
     await close();
   });
   openApps.push(app);
-  return { app, deps, emails };
+  const flushBackground = async (): Promise<void> => {
+    await Promise.all(tasks.splice(0));
+  };
+  return { app, deps, emails, flushBackground };
 }
 
 const openApps: FastifyInstance[] = [];

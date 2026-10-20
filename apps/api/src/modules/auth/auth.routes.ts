@@ -10,7 +10,9 @@ import { clearRefreshCookie, REFRESH_COOKIE, setRefreshCookie } from "./cookies.
 import type { JwtService } from "./jwt.js";
 import type { RefreshTokenStore } from "./refresh-tokens.js";
 
-type Deps = { env: Env; auth: AuthService; jwt: JwtService; refreshTokens: RefreshTokenStore; passwordReset: PasswordResetService };
+type Deps = { env: Env; auth: AuthService; jwt: JwtService; refreshTokens: RefreshTokenStore; passwordReset: PasswordResetService;
+  onBackgroundTask?: (task: Promise<unknown>) => void;
+};
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -25,7 +27,7 @@ const loginKey = (req: FastifyRequest): string => {
   return email === undefined ? req.ip : `${req.ip}:${email}`;
 };
 
-export function authRoutes(app: FastifyInstance, { env, auth, jwt, refreshTokens, passwordReset }: Deps, done: () => void): void {
+export function authRoutes(app: FastifyInstance, { env, auth, jwt, refreshTokens, passwordReset, onBackgroundTask }: Deps, done: () => void): void {
   const originGuard = createOriginGuard(env);
   // teto por e-mail, independente do IP (20 por 15 min): cobre IPs rotativos
   const emailLimiter = createWindowLimiter({ max: 20, windowMs: 15 * MINUTE });
@@ -76,10 +78,14 @@ export function authRoutes(app: FastifyInstance, { env, auth, jwt, refreshTokens
     { onRequest: originGuard, preHandler: forgotEmailLimit, config: limit(10, HOUR) },
     async (req, reply) => {
       const { email } = forgotPasswordInput.parse(req.body);
-      // envio não bloqueante: a resposta não espera o provedor; falha só é logada (sem token/link)
-      await passwordReset.requestReset(email, (err) => {
-        req.log.error({ err: err instanceof Error ? err.message : "falha" }, "falha ao enviar e-mail de redefinição");
-      });
+      // tudo (busca, token, envio) roda em segundo plano: a resposta não depende de o e-mail existir.
+      // Promise.resolve().then também cobre throw síncrono; o log nunca inclui token/link.
+      const task = Promise.resolve()
+        .then(() => passwordReset.requestReset(email))
+        .catch((err: unknown) => {
+          req.log.error({ err: err instanceof Error ? err.message : "falha" }, "falha ao processar esqueci-a-senha");
+        });
+      onBackgroundTask?.(task);
       return reply.status(202).send({ message: "Se o e-mail existir, enviamos um link" });
     },
   );

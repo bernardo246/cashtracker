@@ -22,16 +22,14 @@ type Deps = {
 export function createPasswordResetService({ db, emailSender, refreshTokens, appUrl, now = () => new Date() }: Deps) {
   return {
     /**
-     * Cria o token e dispara o e-mail. Devolve a promessa de envio (já com erro tratado por `onSendError`)
-     * para a rota ignorá-la e os testes poderem aguardá-la; `sent` é null se o usuário não existe.
+     * Fluxo completo (busca, token, envio). Roda fora do caminho da resposta (a rota não espera),
+     * então o tempo de resposta não depende de o e-mail existir. Rejeita se o envio falhar.
      */
-    async requestReset(email: string, onSendError: (err: unknown) => void): Promise<{ sent: Promise<void> | null }> {
+    async requestReset(email: string): Promise<void> {
       const [user] = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
-      // mesmo trabalho (token + hash) quando o e-mail não existe, para não vazar por tempo
-      const token = randomBytes(32).toString("base64url");
-      const tokenHash = sha256(token);
-      if (!user) return { sent: null };
+      if (!user) return;
 
+      const token = randomBytes(32).toString("base64url");
       const at = now();
       await db.transaction(async (tx) => {
         await tx
@@ -40,12 +38,11 @@ export function createPasswordResetService({ db, emailSender, refreshTokens, app
           .where(and(eq(passwordResetTokens.userId, user.id), isNull(passwordResetTokens.usedAt)));
         await tx
           .insert(passwordResetTokens)
-          .values({ userId: user.id, tokenHash, expiresAt: new Date(at.getTime() + TOKEN_TTL_MS) });
+          .values({ userId: user.id, tokenHash: sha256(token), expiresAt: new Date(at.getTime() + TOKEN_TTL_MS) });
       });
 
       const link = `${appUrl.replace(/\/+$/, "")}/redefinir-senha?token=${encodeURIComponent(token)}`;
-      // objeto-wrapper: devolver a promessa direto de uma função async a faria ser aguardada
-      return { sent: emailSender.send({ to: email, ...resetPasswordEmail(link) }).catch(onSendError) };
+      await emailSender.send({ to: email, ...resetPasswordEmail(link) });
     },
 
     async resetPassword(token: string, password: string): Promise<void> {
