@@ -4,6 +4,7 @@ import type postgres from "postgres";
 import { buildApp, type AppDeps } from "../../src/app.js";
 import { loadEnv, type Env } from "../../src/config/env.js";
 import { createDb } from "../../src/db/client.js";
+import type { EmailMessage } from "../../src/email/email-sender.js";
 
 const TEST_DATABASE_URL = process.env.DATABASE_URL ?? "postgres://cash:cash@localhost:5432/cash_test";
 
@@ -40,17 +41,20 @@ export function testEnv(overrides: Record<string, string | undefined> = {}): Env
 export async function buildTestApp(overrides: Partial<AppDeps> = {}): Promise<{
   app: FastifyInstance;
   deps: AppDeps;
-  emails: unknown[]; // Tarefa 7 passa a preencher com SentEmail[]
+  emails: EmailMessage[];
 }> {
   const env = overrides.env ?? testEnv();
   const { db, sql, close } = createDb(env.DATABASE_URL);
-  const deps: AppDeps = { env, db, sql, ...overrides };
+  const emails: EmailMessage[] = [];
+  // registra de forma síncrona na chamada de send: testes não precisam de sleeps
+  const emailSender = { send: (msg: EmailMessage) => (emails.push(msg), Promise.resolve()) };
+  const deps: AppDeps = { env, db, sql, emailSender, ...overrides };
   const app = await buildApp(deps);
   app.addHook("onClose", async () => {
     await close();
   });
   openApps.push(app);
-  return { app, deps, emails: [] };
+  return { app, deps, emails };
 }
 
 const openApps: FastifyInstance[] = [];

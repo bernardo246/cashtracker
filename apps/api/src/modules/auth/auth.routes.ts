@@ -1,15 +1,16 @@
-import { loginInput, registerInput, updateMeInput, type AuthResponse } from "@cash/shared";
+import { forgotPasswordInput, loginInput, registerInput, resetPasswordInput, updateMeInput, type AuthResponse } from "@cash/shared";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { Env } from "../../config/env.js";
 import { AppError, unauthorized } from "../../http/errors.js";
 import { createWindowLimiter } from "../../http/window-limiter.js";
 import { createOriginGuard } from "../../http/origin-guard.js";
+import type { PasswordResetService } from "./password-reset.service.js";
 import type { AuthService } from "./auth.service.js";
 import { clearRefreshCookie, REFRESH_COOKIE, setRefreshCookie } from "./cookies.js";
 import type { JwtService } from "./jwt.js";
 import type { RefreshTokenStore } from "./refresh-tokens.js";
 
-type Deps = { env: Env; auth: AuthService; jwt: JwtService; refreshTokens: RefreshTokenStore };
+type Deps = { env: Env; auth: AuthService; jwt: JwtService; refreshTokens: RefreshTokenStore; passwordReset: PasswordResetService };
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -24,7 +25,7 @@ const loginKey = (req: FastifyRequest): string => {
   return email === undefined ? req.ip : `${req.ip}:${email}`;
 };
 
-export function authRoutes(app: FastifyInstance, { env, auth, jwt, refreshTokens }: Deps, done: () => void): void {
+export function authRoutes(app: FastifyInstance, { env, auth, jwt, refreshTokens, passwordReset }: Deps, done: () => void): void {
   const originGuard = createOriginGuard(env);
   // teto por e-mail, independente do IP (20 por 15 min): cobre IPs rotativos
   const emailLimiter = createWindowLimiter({ max: 20, windowMs: 15 * MINUTE });
@@ -32,6 +33,16 @@ export function authRoutes(app: FastifyInstance, { env, auth, jwt, refreshTokens
     const email = bodyEmail(req);
     if (!env.RATE_LIMIT_ENABLED || email === undefined) return Promise.resolve();
     const retryAfter = emailLimiter.hit(email);
+    if (retryAfter === null) return Promise.resolve();
+    void reply.header("retry-after", retryAfter);
+    return Promise.reject(new AppError(429, "RATE_LIMITED", "Muitas tentativas. Tente novamente em instantes."));
+  };
+  // forgot-password: 3/h por e-mail (além de 10/h por IP, via plugin)
+  const forgotLimiter = createWindowLimiter({ max: 3, windowMs: HOUR });
+  const forgotEmailLimit = (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const email = bodyEmail(req);
+    if (!env.RATE_LIMIT_ENABLED || email === undefined) return Promise.resolve();
+    const retryAfter = forgotLimiter.hit(email);
     if (retryAfter === null) return Promise.resolve();
     void reply.header("retry-after", retryAfter);
     return Promise.reject(new AppError(429, "RATE_LIMITED", "Muitas tentativas. Tente novamente em instantes."));
@@ -58,6 +69,25 @@ export function authRoutes(app: FastifyInstance, { env, auth, jwt, refreshTokens
     const rt = await refreshTokens.issue(user.id, req.headers["user-agent"]);
     setRefreshCookie(reply, rt.token, rt.expiresAt, env);
     return respond(user.id, user);
+  });
+
+  app.post(
+    "/auth/forgot-password",
+    { onRequest: originGuard, preHandler: forgotEmailLimit, config: limit(10, HOUR) },
+    async (req, reply) => {
+      const { email } = forgotPasswordInput.parse(req.body);
+      // envio não bloqueante: a resposta não espera o provedor; falha só é logada (sem token/link)
+      await passwordReset.requestReset(email, (err) => {
+        req.log.error({ err: err instanceof Error ? err.message : "falha" }, "falha ao enviar e-mail de redefinição");
+      });
+      return reply.status(202).send({ message: "Se o e-mail existir, enviamos um link" });
+    },
+  );
+
+  app.post("/auth/reset-password", { onRequest: originGuard, config: limit(10, HOUR) }, async (req) => {
+    const { token, password } = resetPasswordInput.parse(req.body);
+    await passwordReset.resetPassword(token, password);
+    return { message: "Senha redefinida" };
   });
 
   app.post("/auth/refresh", { onRequest: originGuard, config: limit(30, MINUTE) }, async (req, reply) => {

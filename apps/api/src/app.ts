@@ -6,10 +6,14 @@ import Fastify, { type FastifyInstance } from "fastify";
 import type postgres from "postgres";
 import type { Env } from "./config/env.js";
 import type { Db } from "./db/client.js";
+import { createBrevoSender } from "./email/brevo.js";
+import { createConsoleSender } from "./email/console.js";
+import type { EmailSender } from "./email/email-sender.js";
 import { registerAuthGuard } from "./http/auth-guard.js";
 import { registerErrorHandler } from "./http/errors.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { createAuthService } from "./modules/auth/auth.service.js";
+import { createPasswordResetService } from "./modules/auth/password-reset.service.js";
 import { createJwtService } from "./modules/auth/jwt.js";
 import { createRefreshTokenStore } from "./modules/auth/refresh-tokens.js";
 
@@ -17,7 +21,7 @@ export type AppDeps = {
   env: Env;
   db: Db;
   sql: postgres.Sql;
-  emailSender?: unknown; // EmailSender entra na Tarefa 7
+  emailSender?: EmailSender;
   now?: () => Date;
   google?: unknown; // GoogleEndpoints entra na Tarefa 8
 };
@@ -62,11 +66,22 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     return { status: "ok" };
   });
 
+  const refreshTokens = createRefreshTokenStore(deps.db, deps.now);
+  const emailSender =
+    deps.emailSender ?? (deps.env.EMAIL_PROVIDER === "brevo" ? createBrevoSender(deps.env) : createConsoleSender(app.log));
+
   await app.register(authRoutes, {
     env: deps.env,
     auth: createAuthService(deps.db, deps.now),
     jwt,
-    refreshTokens: createRefreshTokenStore(deps.db, deps.now),
+    refreshTokens,
+    passwordReset: createPasswordResetService({
+      db: deps.db,
+      emailSender,
+      refreshTokens,
+      appUrl: deps.env.APP_URL,
+      now: deps.now,
+    }),
   });
 
   return app;
