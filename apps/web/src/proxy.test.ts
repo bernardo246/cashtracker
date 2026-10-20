@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { proxy } from "./proxy";
+import { config, proxy } from "./proxy";
 
 function csp(res: Response): string {
   return res.headers.get("content-security-policy") ?? "";
@@ -13,6 +13,22 @@ describe("proxy", () => {
     expect(value).toContain("connect-src 'self'");
     expect(value).toContain("frame-ancestors 'none'");
     expect(value).not.toContain("unsafe-eval");
+  });
+
+  it("style-src permite inline sem nonce; o nonce fica só no script-src", () => {
+    const value = csp(proxy(new NextRequest("http://localhost:3000/")));
+    const style = /style-src ([^;]+)/.exec(value)?.[1] ?? "";
+    expect(style).toBe("'self' 'unsafe-inline'");
+    expect(style).not.toContain("nonce-");
+  });
+
+  it("matcher ignora /api e /api/x, mas não /api-keys", () => {
+    const source = config.matcher[0]?.source ?? "";
+    const re = new RegExp(`^${source}$`);
+    expect(re.test("/api")).toBe(false);
+    expect(re.test("/api/health")).toBe(false);
+    expect(re.test("/api-keys")).toBe(true);
+    expect(re.test("/")).toBe(true);
   });
 
   it("gera um nonce novo por requisição", () => {

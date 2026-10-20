@@ -7,7 +7,10 @@ export function proxy(request: NextRequest) {
   const csp = [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
-    `style-src 'self' 'nonce-${nonce}'`,
+    // 'unsafe-inline' sem nonce: atributos style (React/Recharts) e <style> injetados
+    // por bibliotecas (sonner, radix, vaul) não carregam nonce; um nonce aqui faria
+    // o navegador ignorar 'unsafe-inline'.
+    "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https://lh3.googleusercontent.com",
     "font-src 'self'",
     "connect-src 'self'",
@@ -30,7 +33,7 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     {
-      source: "/((?!api|_next/static|_next/image|favicon.ico).*)",
+      source: "/((?!api(?:/|$)|_next/static|_next/image|favicon.ico).*)",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },
