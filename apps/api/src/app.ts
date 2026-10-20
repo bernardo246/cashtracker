@@ -13,6 +13,8 @@ import { registerAuthGuard } from "./http/auth-guard.js";
 import { registerErrorHandler } from "./http/errors.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { createAuthService } from "./modules/auth/auth.service.js";
+import { createGoogleClient, DEFAULT_GOOGLE_ENDPOINTS, type GoogleEndpoints } from "./modules/auth/google-client.js";
+import { googleRoutes } from "./modules/auth/google.routes.js";
 import { createPasswordResetService } from "./modules/auth/password-reset.service.js";
 import { createJwtService } from "./modules/auth/jwt.js";
 import { createRefreshTokenStore } from "./modules/auth/refresh-tokens.js";
@@ -25,7 +27,7 @@ export type AppDeps = {
   now?: () => Date;
   onBackgroundTask?: (task: Promise<unknown>) => void; // testes aguardam trabalho em segundo plano
   logStream?: { write(msg: string): void }; // testes capturam logs
-  google?: unknown; // GoogleEndpoints entra na Tarefa 8
+  google?: GoogleEndpoints; // padrão: endpoints reais do Google (spec §6.4); testes usam o servidor falso
 };
 
 // Fastify 5.12 trata `trustProxy: <número>` como "não confiar em ninguém" (fail closed), então
@@ -86,6 +88,13 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       appUrl: deps.env.APP_URL,
       now: deps.now,
     }),
+  });
+
+  await app.register(googleRoutes, {
+    env: deps.env,
+    db: deps.db,
+    google: createGoogleClient(deps.env, deps.google ?? DEFAULT_GOOGLE_ENDPOINTS, fetch, deps.now),
+    refreshTokens,
   });
 
   return app;

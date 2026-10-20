@@ -22,7 +22,7 @@ export function toUserDto(user: UserRow, hasGoogle: boolean): UserDto {
 const EMAIL_TAKEN = "Este e-mail já tem uma conta. Entre ou use 'Esqueceu a senha'";
 
 // drizzle encapsula o erro do driver em `cause`
-function isUniqueViolation(err: unknown): boolean {
+export function isUniqueViolation(err: unknown): boolean {
   const e = err as { code?: string; cause?: { code?: string } };
   return e?.code === "23505" || e?.cause?.code === "23505";
 }

@@ -110,14 +110,16 @@ export function createRefreshTokenStore(db: Db, now: () => Date = () => new Date
       });
     },
 
-    async revokeAllForUser(userId: string): Promise<void> {
-      await db.transaction(async (tx) => {
-        await lockUser(tx, userId);
-        await tx
+    /** Com `tx`, roda dentro da transação do chamador (o advisory lock vale até o commit dela). */
+    async revokeAllForUser(userId: string, tx?: Tx): Promise<void> {
+      const run = async (t: Tx) => {
+        await lockUser(t, userId);
+        await t
           .update(refreshTokens)
           .set({ revokedAt: now() })
           .where(and(eq(refreshTokens.userId, userId), isNull(refreshTokens.revokedAt)));
-      });
+      };
+      await (tx ? run(tx) : db.transaction(run));
     },
   };
 }
