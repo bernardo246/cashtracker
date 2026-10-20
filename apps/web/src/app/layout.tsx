@@ -8,6 +8,7 @@ import "@fontsource/jetbrains-mono/400.css";
 import "@fontsource/jetbrains-mono/500.css";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { Providers } from "./providers";
 
 // Renderização dinâmica: o nonce da CSP (proxy.ts) é novo a cada requisição.
 export const dynamic = "force-dynamic";
@@ -28,7 +29,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-BR">
       <body className="min-h-dvh antialiased">
-        {children}
+        <Providers>{children}</Providers>
         <Toaster />
       </body>
     </html>
