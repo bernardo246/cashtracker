@@ -26,6 +26,8 @@ const schema = z
     EMAIL_FROM_NAME: z.string().min(1).default("Cash Tracker"),
     LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
     RATE_LIMIT_ENABLED: bool,
+    // saltos de proxy confiáveis para req.ip (produção: 2 = edge da Vercel + load balancer do Render)
+    TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(1),
   })
   .superRefine((env, ctx) => {
     if (env.EMAIL_PROVIDER !== "brevo") return;

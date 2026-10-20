@@ -17,6 +17,14 @@ describe("loadEnv", () => {
     expect(loadEnv({ ...src, RATE_LIMIT_ENABLED: undefined, LOG_LEVEL: undefined }).RATE_LIMIT_ENABLED).toBe(true);
   });
 
+  it("TRUST_PROXY_HOPS: default 1, aceita inteiros >= 0, rejeita negativos e não inteiros", () => {
+    expect(loadEnv(validEnvSource()).TRUST_PROXY_HOPS).toBe(1);
+    expect(loadEnv(validEnvSource({ TRUST_PROXY_HOPS: "2" })).TRUST_PROXY_HOPS).toBe(2);
+    expect(loadEnv(validEnvSource({ TRUST_PROXY_HOPS: "0" })).TRUST_PROXY_HOPS).toBe(0);
+    expect(() => loadEnv(validEnvSource({ TRUST_PROXY_HOPS: "-1" }))).toThrow(/TRUST_PROXY_HOPS/);
+    expect(() => loadEnv(validEnvSource({ TRUST_PROXY_HOPS: "1.5" }))).toThrow(/TRUST_PROXY_HOPS/);
+  });
+
   it("COOKIE_SECRET exige 32+ caracteres", () => {
     expect(() => loadEnv(validEnvSource({ COOKIE_SECRET: "curto" }))).toThrow(/COOKIE_SECRET/);
   });

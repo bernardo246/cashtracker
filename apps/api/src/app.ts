@@ -22,6 +22,12 @@ export type AppDeps = {
   google?: unknown; // GoogleEndpoints entra na Tarefa 8
 };
 
+// Fastify 5.12 trata `trustProxy: <número>` como "não confiar em ninguém" (fail closed), então
+// usamos a função equivalente: confia nos N primeiros saltos a partir do socket.
+function trustProxyFor(hops: number): boolean | ((addr: string, i: number) => boolean) {
+  return hops > 0 ? (_addr, i) => i < hops : false;
+}
+
 export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
@@ -34,7 +40,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
         "*.token",
       ],
     },
-    trustProxy: true,
+    // número de saltos (não `true`): evita que o cliente forje X-Forwarded-For para trocar de bucket de rate limit
+    trustProxy: trustProxyFor(deps.env.TRUST_PROXY_HOPS),
     genReqId: () => randomUUID(),
   });
 

@@ -224,4 +224,16 @@ describe("auth: rate limit", () => {
     expect(Number(blocked.headers["retry-after"])).toBeGreaterThan(0);
     expect((await attempt("b@x.com")).statusCode).toBe(401);
   });
+
+  it("20/15min por e-mail vale mesmo trocando o IP (X-Forwarded-For forjado)", async () => {
+    const { app, deps } = await buildTestApp({ env: testEnv({ RATE_LIMIT_ENABLED: "true" }) });
+    await resetDb(deps.sql);
+    const attempt = (n: number) =>
+      post(app, "/auth/login", { email: "vitima@x.com", password: "errada-errada" }, { ...H, "x-forwarded-for": `10.0.0.${n}` });
+    for (let n = 1; n <= 20; n++) expect((await attempt(n)).statusCode).toBe(401);
+    const blocked = await attempt(21);
+    expect(blocked.statusCode).toBe(429);
+    expect(blocked.json<Body>().error.code).toBe("RATE_LIMITED");
+    expect(Number(blocked.headers["retry-after"])).toBeGreaterThan(0);
+  });
 });

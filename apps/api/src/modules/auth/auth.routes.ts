@@ -1,7 +1,8 @@
 import { loginInput, registerInput, updateMeInput, type AuthResponse } from "@cash/shared";
-import type { FastifyInstance, FastifyRequest } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { Env } from "../../config/env.js";
-import { unauthorized } from "../../http/errors.js";
+import { AppError, unauthorized } from "../../http/errors.js";
+import { createWindowLimiter } from "../../http/window-limiter.js";
 import { createOriginGuard } from "../../http/origin-guard.js";
 import type { AuthService } from "./auth.service.js";
 import { clearRefreshCookie, REFRESH_COOKIE, setRefreshCookie } from "./cookies.js";
@@ -14,13 +15,27 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 
 // Chave do login: IP + e-mail normalizado (cai para o IP se o corpo não trouxer e-mail)
-function loginKey(req: FastifyRequest): string {
+function bodyEmail(req: FastifyRequest): string | undefined {
   const email = (req.body as { email?: unknown } | undefined)?.email;
-  return typeof email === "string" ? `${req.ip}:${email.trim().toLowerCase()}` : req.ip;
+  return typeof email === "string" ? email.trim().toLowerCase() : undefined;
 }
+const loginKey = (req: FastifyRequest): string => {
+  const email = bodyEmail(req);
+  return email === undefined ? req.ip : `${req.ip}:${email}`;
+};
 
 export function authRoutes(app: FastifyInstance, { env, auth, jwt, refreshTokens }: Deps, done: () => void): void {
   const originGuard = createOriginGuard(env);
+  // teto por e-mail, independente do IP (20 por 15 min): cobre IPs rotativos
+  const emailLimiter = createWindowLimiter({ max: 20, windowMs: 15 * MINUTE });
+  const loginEmailLimit = (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const email = bodyEmail(req);
+    if (!env.RATE_LIMIT_ENABLED || email === undefined) return Promise.resolve();
+    const retryAfter = emailLimiter.hit(email);
+    if (retryAfter === null) return Promise.resolve();
+    void reply.header("retry-after", retryAfter);
+    return Promise.reject(new AppError(429, "RATE_LIMITED", "Muitas tentativas. Tente novamente em instantes."));
+  };
   const limit = (max: number, timeWindow: number, keyGenerator?: (req: FastifyRequest) => string) =>
     env.RATE_LIMIT_ENABLED
       ? { rateLimit: { max, timeWindow, hook: "preHandler" as const, ...(keyGenerator && { keyGenerator }) } }
@@ -38,7 +53,7 @@ export function authRoutes(app: FastifyInstance, { env, auth, jwt, refreshTokens
     return reply.status(201).send(await respond(user.id, user));
   });
 
-  app.post("/auth/login", { onRequest: originGuard, config: limit(5, MINUTE, loginKey) }, async (req, reply) => {
+  app.post("/auth/login", { onRequest: originGuard, preHandler: loginEmailLimit, config: limit(5, MINUTE, loginKey) }, async (req, reply) => {
     const user = await auth.login(loginInput.parse(req.body));
     const rt = await refreshTokens.issue(user.id, req.headers["user-agent"]);
     setRefreshCookie(reply, rt.token, rt.expiresAt, env);
