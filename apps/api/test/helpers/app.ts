@@ -56,11 +56,11 @@ export async function closeTestApps(): Promise<void> {
   await Promise.all(openApps.splice(0).map((a) => a.close()));
 }
 
-/** TRUNCATE de todas as tabelas do schema app; tolera o schema ainda não existir (Tarefa 4). */
+/** TRUNCATE das tabelas de dados do schema app (preserva schema_migrations); tolera o schema não existir. */
 export async function resetDb(sql: postgres.Sql): Promise<void> {
   const rows = await sql<{ t: string }[]>`
     SELECT format('%I.%I', schemaname, tablename) AS t
-    FROM pg_tables WHERE schemaname = 'app'`;
+    FROM pg_tables WHERE schemaname = 'app' AND tablename <> 'schema_migrations'`;
   if (rows.length === 0) return;
   await sql.unsafe(`TRUNCATE ${rows.map((r) => r.t).join(", ")} CASCADE`);
 }

@@ -8,6 +8,7 @@
     "dev": "tsx watch src/dev.ts",
     "prebuild": "pnpm --filter @cash/shared build",
     "build": "tsc -p tsconfig.build.json",
+    "postbuild": "node scripts/copy-migrations.mjs",
     "pretypecheck": "pnpm --filter @cash/shared build",
     "typecheck": "tsc --noEmit -p .",
     "lint": "eslint .",
