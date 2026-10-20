@@ -13,6 +13,8 @@ import { registerAuthGuard } from "./http/auth-guard.js";
 import { registerErrorHandler } from "./http/errors.js";
 import { categoryRoutes } from "./modules/categories/categories.routes.js";
 import { createCategoryService } from "./modules/categories/categories.service.js";
+import { reportRoutes } from "./modules/reports/reports.routes.js";
+import { createReportService } from "./modules/reports/reports.service.js";
 import { transactionRoutes } from "./modules/transactions/transactions.routes.js";
 import { createTransactionService } from "./modules/transactions/transactions.service.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
@@ -115,6 +117,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
 
   await app.register(categoryRoutes, { env: deps.env, categories: createCategoryService(deps.db, deps.now) });
   await app.register(transactionRoutes, { env: deps.env, transactions: createTransactionService(deps.db, deps.now) });
+
+  await app.register(reportRoutes, { env: deps.env, reports: createReportService(deps.db, deps.sql, deps.now) });
 
   return app;
 }
