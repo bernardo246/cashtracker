@@ -1,5 +1,6 @@
 import type { CategoryDto, TransactionDto, TransactionPage } from "@cash/shared";
 import type { FastifyInstance } from "fastify";
+import type postgres from "postgres";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildTestApp, closeTestApps, resetDb } from "./helpers/app.js";
 import { registerUser } from "./helpers/users.js";
@@ -9,9 +10,11 @@ afterEach(closeTestApps);
 type Err = { error: { code: string; message: string } };
 
 let app: FastifyInstance;
+let sql: postgres.Sql;
 beforeEach(async () => {
   const ctx = await buildTestApp();
   app = ctx.app;
+  sql = ctx.deps.sql;
   await resetDb(ctx.deps.sql);
 });
 
@@ -168,7 +171,7 @@ describe("lançamentos: atualizar", () => {
     expect(res.json<TransactionDto>()).toMatchObject({ amountCents: 9999, category: { id: lazer.id } });
   });
 
-  it("description null limpa; texto em branco também; atualiza updated_at", async () => {
+  it("description null limpa; texto em branco também", async () => {
     const { accessToken } = await registerUser(app);
     const delivery = await cat(accessToken, "Delivery", "expense");
     const t = await make(accessToken, delivery.id, "2026-10-05", { description: "x" });
@@ -178,6 +181,16 @@ describe("lançamentos: atualizar", () => {
     expect(again.json<TransactionDto>().description).toBe("y");
     const blank = await call(accessToken, "PATCH", `/transactions/${t.id}`, { description: "  " });
     expect(blank.json<TransactionDto>().description).toBeNull();
+  });
+
+  it("PATCH atualiza updated_at no banco", async () => {
+    const { accessToken } = await registerUser(app);
+    const delivery = await cat(accessToken, "Delivery", "expense");
+    const t = await make(accessToken, delivery.id, "2026-10-05");
+    await sql`UPDATE app.transactions SET updated_at = '2020-01-01T00:00:00Z' WHERE id = ${t.id}`;
+    await call(accessToken, "PATCH", `/transactions/${t.id}`, { amountCents: 42 });
+    const [row] = await sql<{ fresh: boolean }[]>`SELECT updated_at > '2020-01-01T00:00:00Z' AS fresh FROM app.transactions WHERE id = ${t.id}`;
+    expect(row!.fresh).toBe(true);
   });
 
   it("corpo vazio → 400; outro usuário → 404; id inválido → 404", async () => {
@@ -249,6 +262,30 @@ describe("lançamentos: listagem", () => {
     const p2 = await list(accessToken, `?limit=2&cursor=${p1.nextCursor}`);
     expect(p2.items.map((i) => i.id)).toEqual([ids[0]]);
     expect(p2.nextCursor).toBeNull();
+  });
+
+  it("percorre todas as páginas com datas iguais: sem duplicatas nem lacunas", async () => {
+    const { accessToken } = await registerUser(app);
+    const delivery = await cat(accessToken, "Delivery", "expense");
+    for (const d of ["2026-10-10", "2026-10-10", "2026-10-10", "2026-10-10", "2026-10-09", "2026-10-11", "2026-09-30", "2026-11-01"]) {
+      await make(accessToken, delivery.id, d);
+    }
+    for (const qs of ["", "month=2026-10&"]) {
+      const full = (await list(accessToken, qs ? "?month=2026-10" : "")).items.map((i) => i.id);
+      expect(full).toHaveLength(qs ? 6 : 8);
+      for (const limit of [1, 2, 3]) {
+        const walked: string[] = [];
+        let cursor: string | null = null;
+        let last: TransactionPage | undefined;
+        do {
+          last = await list(accessToken, `?${qs}limit=${limit}${cursor ? `&cursor=${cursor}` : ""}`);
+          walked.push(...last.items.map((i) => i.id));
+          cursor = last.nextCursor;
+        } while (cursor);
+        expect(walked).toEqual(full);
+        expect(last.nextCursor).toBeNull();
+      }
+    }
   });
 
   it("cursor malformado → 400 INVALID_CURSOR", async () => {
