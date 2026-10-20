@@ -7,12 +7,15 @@ import { createDb } from "../../src/db/client.js";
 
 const TEST_DATABASE_URL = process.env.DATABASE_URL ?? "postgres://cash:cash@localhost:5432/cash_test";
 
+// gerar RSA é lento; uma chave por módulo basta para os testes
+const TEST_PRIVATE_KEY = generateKeyPairSync("rsa", {
+  modulusLength: 2048,
+  privateKeyEncoding: { type: "pkcs8", format: "pem" },
+  publicKeyEncoding: { type: "spki", format: "pem" },
+}).privateKey;
+
 export function validEnvSource(overrides: Record<string, string | undefined> = {}): Record<string, string | undefined> {
-  const { privateKey } = generateKeyPairSync("rsa", {
-    modulusLength: 2048,
-    privateKeyEncoding: { type: "pkcs8", format: "pem" },
-    publicKeyEncoding: { type: "spki", format: "pem" },
-  });
+  const privateKey = TEST_PRIVATE_KEY;
   return {
     NODE_ENV: "test",
     APP_URL: "http://localhost:3000",
