@@ -1,0 +1,8 @@
+packages: ["apps/*", "packages/*"]
+minimumReleaseAge: 10080
+onlyBuiltDependencies: ["argon2"]
+# Versões exatas fixadas pelo plano, ainda dentro da janela de 7 dias (liberadas em 2026-10-16/19)
+minimumReleaseAgeExclude:
+  - eslint
+  - typescript-eslint
+  - "@typescript-eslint/*"
