@@ -6,7 +6,7 @@ Aplicação web (PWA, mobile-first) para registrar **entradas e saídas de dinhe
 > Este README registra as decisões já aprovadas. Documentos detalhados:
 > - Especificação: [`docs/superpowers/specs/2026-10-19-cash-tracker-design.md`](docs/superpowers/specs/2026-10-19-cash-tracker-design.md)
 > - Configuração do Google OAuth: [`docs/setup-google-oauth.md`](docs/setup-google-oauth.md)
-> - Plano de implementação: `docs/superpowers/plans/` (a criar)
+> - Plano de implementação: [`docs/superpowers/plans/2026-10-19-cash-tracker.md`](docs/superpowers/plans/2026-10-19-cash-tracker.md)
 
 ---
 
@@ -73,13 +73,14 @@ Aplicação web (PWA, mobile-first) para registrar **entradas e saídas de dinhe
 | Frontend | Next.js (App Router), React, TypeScript, Tailwind CSS, shadcn/ui (Radix), Lucide React, Recharts, TanStack Query, Serwist (PWA) |
 | Fontes | Inter + JetBrains Mono via `@fontsource` (self-hosted) |
 | Backend | Node.js, Fastify, TypeScript |
-| Banco / ORM | PostgreSQL (Supabase), Drizzle ORM + driver `postgres` |
+| Banco / ORM | PostgreSQL (Supabase), Drizzle ORM + driver `postgres`, migrations em SQL puro (sem `drizzle-kit`, que traz dependência vulnerável) |
+| Lint | ESLint + `typescript-eslint` + `eslint-plugin-react-hooks` (sem `eslint-config-next`, que traz dependência vulnerável) |
 | Validação | Zod, com schemas compartilhados entre front e back (`packages/shared`) |
 | Auth | `jose` (JWT RS256 e verificação do ID Token do Google via JWKS), `argon2` (hash de senha) |
 | E-mail | Brevo (API HTTP via `fetch` nativo) |
 | Qualidade | `pnpm audit` na CI (GitHub Actions) bloqueando merge + Dependabot/Renovate |
 
-As versões exatas serão travadas no plano de implementação, conferindo **zero vulnerabilidades** (`pnpm audit`) e compatibilidade entre os pacotes.
+As versões exatas estão no [plano de implementação](docs/superpowers/plans/2026-10-19-cash-tracker.md#global-constraints), verificadas com **zero vulnerabilidades** e sem conflitos de peer dependencies (TypeScript fixado em 6.0, porque o `typescript-eslint` ainda não suporta o 7).
 
 ---
 

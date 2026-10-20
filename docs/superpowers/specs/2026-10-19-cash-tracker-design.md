@@ -102,13 +102,19 @@ Cada módulo da API expõe um *plugin* Fastify (rotas) e um *service* (regras de
 | Gerenciador | pnpm 10 (workspaces, versões exatas, `minimumReleaseAge` de 7 dias) |
 | Frontend | Next.js (App Router), React, TypeScript, Tailwind CSS, shadcn/ui (Radix), Lucide React, Recharts, TanStack Query, Serwist (PWA), `@fontsource/inter`, `@fontsource/jetbrains-mono` |
 | Backend | Fastify, `@fastify/cookie`, `@fastify/helmet`, `@fastify/rate-limit`, pino (embutido), TypeScript |
-| Banco | PostgreSQL 17 (Supabase), Drizzle ORM + `drizzle-kit`, driver `postgres` |
+| Banco | PostgreSQL 17 (Supabase), Drizzle ORM, driver `postgres`; migrations em SQL puro com migrator próprio (sem `drizzle-kit`, ver nota abaixo) |
+| Lint | ESLint + `typescript-eslint` + `eslint-plugin-react-hooks` (sem `eslint-config-next`, ver nota abaixo) |
 | Auth | `jose`, `argon2` |
 | E-mail | Brevo (API HTTP v3 via `fetch`) |
 | Testes | Vitest, Testing Library, Playwright |
 | CI | GitHub Actions + Dependabot |
 
-As versões exatas são definidas no plano de implementação, no momento da instalação, verificando `pnpm audit` limpo e compatibilidade de peer dependencies.
+As versões exatas estão no plano de implementação (verificadas em 2026-10-19: `npm audit` = 0 e `--strict-peer-deps` sem conflitos).
+
+> **Nota (2026-10-19), ajustes impostos pela política de zero vulnerabilidades:**
+> - `drizzle-kit` 0.31 depende de `@esbuild-kit` → `esbuild <=0.24.2` (moderada). Foi removido; as migrations são SQL escrito à mão, aplicadas por um migrator próprio com advisory lock.
+> - `eslint-config-next` 16 depende de `fast-glob → micromatch → braces` (alta). Foi substituído por `typescript-eslint` + `eslint-plugin-react-hooks`.
+> - TypeScript fixado em **6.0.x**, porque o `typescript-eslint` ainda não suporta TypeScript 7.
 
 ---
 
