@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import cookie from "@fastify/cookie";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import type postgres from "postgres";
 import type { Env } from "./config/env.js";
 import type { Db } from "./db/client.js";
@@ -40,6 +40,18 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
       level: deps.env.LOG_LEVEL,
+      // igual ao serializer padrão do Fastify, mas sem a query string: ela pode carregar segredos
+      // (ex.: code/state do callback do Google)
+      serializers: {
+        req: (req: FastifyRequest) => ({
+          method: req.method,
+          url: req.url.split("?", 1)[0],
+          version: [req.headers["accept-version"]].flat()[0],
+          host: req.host,
+          remoteAddress: req.ip,
+          remotePort: req.socket?.remotePort,
+        }),
+      },
       ...(deps.logStream && { stream: deps.logStream }),
       redact: [
         "req.headers.authorization",

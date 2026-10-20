@@ -18,11 +18,11 @@ afterEach(closeTestApps);
 
 type Ctx = { app: FastifyInstance; sql: Awaited<ReturnType<typeof buildTestApp>>["deps"]["sql"]; logs: string[] };
 
-async function setup(): Promise<Ctx> {
+async function setup(logLevel = "warn"): Promise<Ctx> {
   const logs: string[] = [];
   const { app, deps } = await buildTestApp({
     google: google.endpoints,
-    env: testEnv({ LOG_LEVEL: "warn" }),
+    env: testEnv({ LOG_LEVEL: logLevel }),
     logStream: { write: (m) => void logs.push(m) },
   });
   return { app, sql: deps.sql, logs };
@@ -248,6 +248,16 @@ describe("auth: Google", () => {
     const [row] = await sql<{ accounts: number; users: number }[]>`
       SELECT (SELECT count(*)::int FROM app.oauth_accounts) AS accounts, (SELECT count(*)::int FROM app.users) AS users`;
     expect(row).toEqual({ accounts: 1, users: 1 });
+  });
+
+  it("logs de requisição (nível info) não trazem code nem state da query string", async () => {
+    const { app, logs } = await setup("info");
+    const { res, code, flow } = await loginWithGoogle(app);
+    expect(res.headers.location).toBe(HOME);
+    const text = logs.join("");
+    expect(text).toContain('"url":"/auth/google/callback"'); // o log de requisição aconteceu
+    expect(text).not.toContain(code);
+    expect(text).not.toContain(flow.state);
   });
 
   it("o mesmo code/cookie não pode ser reaproveitado", async () => {
