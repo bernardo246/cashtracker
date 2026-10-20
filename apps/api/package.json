@@ -14,6 +14,7 @@
     "lint": "eslint .",
     "pretest": "pnpm --filter @cash/shared build",
     "test": "vitest run",
+    "start": "node dist/start.js",
     "keys:generate": "tsx scripts/generate-keys.ts"
   },
   "dependencies": {
