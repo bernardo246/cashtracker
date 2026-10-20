@@ -10,7 +10,7 @@ import { TransactionSheet } from "./TransactionSheet";
 
 vi.mock("@/lib/session", () => ({ useSession: () => sessionValue() }));
 const toastSuccess = vi.fn();
-vi.mock("sonner", () => ({ toast: { success: (m: string) => toastSuccess(m), error: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { success: (m: string) => void toastSuccess(m), error: vi.fn() } }));
 
 const cat = (id: string, name: string, type: "income" | "expense", archived = false): CategoryDto => ({
   id, name, type, icon: "Wallet", color: "#3ECF8E", archived,
