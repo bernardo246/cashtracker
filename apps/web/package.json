@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "predev": "pnpm --filter @cash/shared build",
-    "dev": "next dev -p 3000",
+    "dev": "next dev --turbopack -p 3000",
     "prebuild": "pnpm --filter @cash/shared build",
     "build": "next build --webpack",
     "start": "next start -p 3000",
