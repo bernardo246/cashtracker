@@ -46,6 +46,15 @@ export function useTransactions(filters: TransactionFilters) {
   });
 }
 
+/** Últimos lançamentos de todo o histórico (mais novos primeiro). */
+export function useRecentTransactions(limit = 5) {
+  const { api } = useSession();
+  return useQuery({
+    queryKey: ["transactions", "recent", limit],
+    queryFn: () => api.request<TransactionPage>(`/transactions?limit=${limit}`),
+  });
+}
+
 function useInvalidate() {
   const qc = useQueryClient();
   return () =>

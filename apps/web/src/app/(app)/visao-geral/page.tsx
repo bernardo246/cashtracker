@@ -1,3 +1,7 @@
+"use client";
+
+import { OverviewView } from "@/features/reports/OverviewView";
+
 export default function Page() {
-  return <h1 className="text-2xl font-semibold">Visão geral</h1>;
+  return <OverviewView />;
 }

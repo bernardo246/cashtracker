@@ -1,23 +1,18 @@
 "use client";
 
-import { formatBrl, monthLabel, type TransactionDto, type TransactionType } from "@cash/shared";
+import { monthLabel, type TransactionDto, type TransactionType } from "@cash/shared";
 import { useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { CategoryIcon } from "./category-icon";
 import { useTransactions } from "./queries";
+import { signed, TransactionRow } from "./TransactionRow";
 import { useTransactionSheet } from "./TransactionSheetProvider";
 
 const dayFmt = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
 
 function dayLabel(iso: string): string {
   return dayFmt.format(new Date(`${iso}T00:00:00Z`));
-}
-
-function signed(cents: number): string {
-  if (cents === 0) return formatBrl(0);
-  return `${cents > 0 ? "+" : "−"} ${formatBrl(Math.abs(cents))}`;
 }
 
 interface DayGroup {
@@ -110,28 +105,7 @@ export function TransactionList({ month, type, categoryId }: TransactionListProp
           </h3>
           <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
             {g.items.map((t) => (
-              <li key={t.id}>
-                <button
-                  type="button"
-                  onClick={() => sheet.open(t)}
-                  className="flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left outline-none hover:bg-surface-elevated focus-visible:ring-2 focus-visible:ring-primary"
-                >
-                  <span
-                    className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-elevated"
-                    style={{ color: t.category.color }}
-                  >
-                    <CategoryIcon name={t.category.icon} className="size-5" />
-                  </span>
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate font-medium">{t.category.name}</span>
-                    {t.description && <span className="truncate text-sm text-text-secondary">{t.description}</span>}
-                  </span>
-                  <span data-amount className={cn("num shrink-0", t.type === "income" ? "text-success" : "text-danger")}>
-                    <span className="sr-only">{t.type === "income" ? "Entrada" : "Saída"}</span>
-                    {signed(t.type === "income" ? t.amountCents : -t.amountCents)}
-                  </span>
-                </button>
-              </li>
+              <TransactionRow key={t.id} transaction={t} onSelect={sheet.open} />
             ))}
           </ul>
         </section>
