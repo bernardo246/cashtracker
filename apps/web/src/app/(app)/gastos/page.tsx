@@ -1,3 +1,12 @@
+"use client";
+
+import { Suspense } from "react";
+import { CategoryReportView } from "@/features/reports/CategoryReportView";
+
 export default function Page() {
-  return <h1 className="text-2xl font-semibold">Gastos</h1>;
+  return (
+    <Suspense>
+      <CategoryReportView type="expense" />
+    </Suspense>
+  );
 }
