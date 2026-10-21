@@ -1,0 +1,21 @@
+# Contexto de build = raiz do repositório (docker build -f apps/api/Dockerfile .)
+# O Docker/BuildKit usa este arquivo (ou apps/api/Dockerfile.dockerignore, que teria precedência).
+**/node_modules
+**/dist
+**/.next
+**/coverage
+**/*.tsbuildinfo
+.git
+.github
+.superpowers
+docs
+apps/web
+.env
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
+*.pem
+*.key
+*.log
+.DS_Store

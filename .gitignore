@@ -29,3 +29,16 @@ pnpm-debug.log*
 
 # Vercel
 .vercel
+
+# Testes
+coverage/
+playwright-report/
+test-results/
+
+# Next.js (gerado)
+next-env.d.ts
+
+# PWA (gerado pelo Serwist no build)
+**/public/sw.js
+**/public/sw.js.map
+**/public/swe-worker-*.js

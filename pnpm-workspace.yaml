@@ -1,0 +1,3 @@
+packages: ["apps/*", "packages/*"]
+minimumReleaseAge: 10080
+onlyBuiltDependencies: ["argon2"]

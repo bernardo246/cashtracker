@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: cash
+          POSTGRES_PASSWORD: cash
+          POSTGRES_DB: cash
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cash -d cash"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - name: Criar banco de testes
+        run: PGPASSWORD=cash psql -h localhost -U cash -d cash -c "CREATE DATABASE cash_test"
+      - name: Testes unitários e de integração
+        run: pnpm test
+        env:
+          DATABASE_URL: postgres://cash:cash@localhost:5432/cash_test
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build da web
+        run: pnpm --filter @cash/web build
+        env:
+          API_URL: http://localhost:4000
+      - name: Build da imagem da API
+        run: docker build -f apps/api/Dockerfile .
+
+  e2e:
+    needs: test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: cash
+          POSTGRES_PASSWORD: cash
+          POSTGRES_DB: cash
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cash -d cash"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Instalar browsers do Playwright
+        run: pnpm --filter @cash/web exec playwright install --with-deps chromium webkit
+      - name: E2E
+        run: pnpm e2e
+      - name: Publicar relatório do Playwright
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 7
