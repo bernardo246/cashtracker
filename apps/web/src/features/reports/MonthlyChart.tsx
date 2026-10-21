@@ -33,8 +33,22 @@ export function MonthlyChart({ items }: { items: MonthlyItem[] }) {
           rows={items.map((i) => [monthLabel(i.month), formatBrl(i.incomeCents), formatBrl(i.expenseCents), formatBrl(i.balanceCents)])}
         />
       ) : (
-        <div role="img" aria-label={LABEL}>
+        <div role="img" aria-label={LABEL} className="flex flex-col gap-2">
           <MonthlyChartCanvas data={toChartData(items)} />
+          <ul aria-hidden="true" data-testid="legend" className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-secondary">
+            <li className="flex items-center gap-1.5">
+              <span className="size-2.5 rounded-xs bg-success" />
+              Ganhos
+            </li>
+            <li className="flex items-center gap-1.5">
+              <span className="size-2.5 rounded-xs bg-danger" />
+              Gastos
+            </li>
+            <li className="flex items-center gap-1.5">
+              <span className="size-2.5 rounded-full bg-info" />
+              Diferença
+            </li>
+          </ul>
         </div>
       )}
     </section>

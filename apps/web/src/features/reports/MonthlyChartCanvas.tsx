@@ -2,7 +2,7 @@
 
 import { formatBrl, monthLabel } from "@cash/shared";
 import { useEffect, useRef, useState } from "react";
-import { Bar, CartesianGrid, ComposedChart, Legend, Line, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
 import { useMediaQuery } from "@/lib/use-media-query";
 import type { ChartDatum } from "./monthly-data";
 
@@ -65,7 +65,6 @@ export default function MonthlyChartCanvas({ data }: { data: ChartDatum[] }) {
           }}
           itemStyle={{ color: "var(--color-text-primary)" }}
         />
-        <Legend wrapperStyle={{ color: "var(--color-text-secondary)", fontSize: 12 }} />
         <Bar dataKey="income" name="Ganhos" fill="var(--color-success)" radius={[3, 3, 0, 0]} isAnimationActive={!reduceMotion} />
         <Bar dataKey="expense" name="Gastos" fill="var(--color-danger)" radius={[3, 3, 0, 0]} isAnimationActive={!reduceMotion} />
         <Line

@@ -16,6 +16,7 @@ describe("SummaryCards", () => {
     expect(screen.getByText("SALDO DE OUTUBRO")).toBeInTheDocument();
     expect(screen.getByTestId("balance").textContent).toMatch(/^Saldo negativo−R\$\s50,00$/);
     expect(screen.getByText("Saldo negativo")).toHaveClass("sr-only");
+    expect(screen.getByTestId("balance")).toHaveClass("text-display", "text-danger");
     expect(container.querySelector("svg.lucide-trending-down")).toBeInTheDocument();
     expect(container.querySelector("svg.lucide-trending-up")).not.toBeInTheDocument();
   });

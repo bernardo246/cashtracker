@@ -37,6 +37,13 @@ describe("MonthlyChart", () => {
     expect(screen.getByRole("img", { name: "Ganhos, gastos e diferença nos últimos 12 meses" })).toBeInTheDocument();
   });
 
+  it("legenda em HTML fora do scroller do gráfico", () => {
+    render(<MonthlyChart items={items()} />);
+    const legend = screen.getByTestId("legend");
+    expect(legend.textContent).toBe("GanhosGastosDiferença");
+    expect(screen.getByTestId("canvas").contains(legend)).toBe(false);
+  });
+
   it("'Ver como tabela' mostra 12 linhas com Mês/Ganhos/Gastos/Diferença", async () => {
     render(<MonthlyChart items={items()} />);
     const toggle = screen.getByRole("button", { name: "Ver como tabela" });
