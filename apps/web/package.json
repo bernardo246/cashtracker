@@ -11,6 +11,7 @@
     "start": "next start -p 3000",
     "pretypecheck": "pnpm --filter @cash/shared build",
     "typecheck": "tsc --noEmit",
+    "prelint": "pnpm --filter @cash/shared build",
     "lint": "eslint .",
     "icons": "node scripts/generate-icons.mjs",
     "pretest": "pnpm --filter @cash/shared build",
