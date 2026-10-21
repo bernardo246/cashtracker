@@ -20,7 +20,7 @@ function StatCard({ id, label, cents, tone }: { id: string; label: string; cents
 export function SummaryCards({ month }: { month: MonthlyItem }) {
   const b = month.balanceCents;
   return (
-    <div className="grid gap-3 lg:grid-cols-[2fr_1fr_1fr]">
+    <div className="grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
       <div className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-4 md:p-6">
         <p className="text-xs font-medium tracking-widest text-text-secondary">SALDO DE {monthName(month.month)}</p>
         <p

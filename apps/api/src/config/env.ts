@@ -20,7 +20,7 @@ const schema = z
     GOOGLE_CLIENT_ID: z.string().min(1),
     GOOGLE_CLIENT_SECRET: z.string().min(1),
     GOOGLE_REDIRECT_URI: z.url(),
-    EMAIL_PROVIDER: z.enum(["brevo", "console"]),
+    EMAIL_PROVIDER: z.enum(["brevo", "console", "memory"]),
     BREVO_API_KEY: z.string().min(1).optional(),
     EMAIL_FROM: z.email().optional(),
     EMAIL_FROM_NAME: z.string().min(1).default("Cash Tracker"),
@@ -30,6 +30,9 @@ const schema = z
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(1),
   })
   .superRefine((env, ctx) => {
+    if (env.EMAIL_PROVIDER === "memory" && env.NODE_ENV !== "test") {
+      ctx.addIssue({ code: "custom", path: ["EMAIL_PROVIDER"], message: "memory só com NODE_ENV=test" });
+    }
     if (env.EMAIL_PROVIDER !== "brevo") return;
     for (const key of ["BREVO_API_KEY", "EMAIL_FROM"] as const) {
       if (!env[key]) {

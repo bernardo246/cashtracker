@@ -25,6 +25,12 @@ describe("loadEnv", () => {
     expect(() => loadEnv(validEnvSource({ TRUST_PROXY_HOPS: "1.5" }))).toThrow(/TRUST_PROXY_HOPS/);
   });
 
+  it("EMAIL_PROVIDER=memory só é aceito com NODE_ENV=test", () => {
+    expect(loadEnv(validEnvSource({ EMAIL_PROVIDER: "memory" })).EMAIL_PROVIDER).toBe("memory");
+    expect(() => loadEnv(validEnvSource({ EMAIL_PROVIDER: "memory", NODE_ENV: "production" }))).toThrow(/EMAIL_PROVIDER/);
+    expect(() => loadEnv(validEnvSource({ EMAIL_PROVIDER: "memory", NODE_ENV: "development" }))).toThrow(/EMAIL_PROVIDER/);
+  });
+
   it("COOKIE_SECRET exige 32+ caracteres", () => {
     expect(() => loadEnv(validEnvSource({ COOKIE_SECRET: "curto" }))).toThrow(/COOKIE_SECRET/);
   });

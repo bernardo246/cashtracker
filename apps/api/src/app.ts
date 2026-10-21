@@ -9,6 +9,8 @@ import type { Db } from "./db/client.js";
 import { createBrevoSender } from "./email/brevo.js";
 import { createConsoleSender } from "./email/console.js";
 import type { EmailSender } from "./email/email-sender.js";
+import { createMemorySender } from "./email/memory.js";
+import { testMailboxRoutes } from "./modules/dev/test-mailbox.routes.js";
 import { registerAuthGuard } from "./http/auth-guard.js";
 import { registerErrorHandler } from "./http/errors.js";
 import { categoryRoutes } from "./modules/categories/categories.routes.js";
@@ -90,8 +92,12 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   });
 
   const refreshTokens = createRefreshTokenStore(deps.db, deps.now);
+  const memoryMailbox = deps.env.EMAIL_PROVIDER === "memory" ? createMemorySender() : undefined;
   const emailSender =
-    deps.emailSender ?? (deps.env.EMAIL_PROVIDER === "brevo" ? createBrevoSender(deps.env) : createConsoleSender(app.log));
+    deps.emailSender ??
+    memoryMailbox ??
+    (deps.env.EMAIL_PROVIDER === "brevo" ? createBrevoSender(deps.env) : createConsoleSender(app.log));
+  if (memoryMailbox) await app.register(testMailboxRoutes, { mailbox: memoryMailbox });
 
   await app.register(authRoutes, {
     env: deps.env,

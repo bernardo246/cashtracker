@@ -12,7 +12,8 @@
     "test": "pnpm -r --if-present test",
     "build": "pnpm -r --if-present build",
     "audit:ci": "pnpm audit",
-    "dev": "pnpm -r --parallel --if-present dev"
+    "dev": "pnpm -r --parallel --if-present dev",
+    "e2e": "pnpm --filter @cash/web e2e"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
