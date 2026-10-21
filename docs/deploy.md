@@ -114,7 +114,7 @@ openssl rand -base64 48
    | `RATE_LIMIT_ENABLED` | `true` |
    | `TRUST_PROXY_HOPS` | `2` (edge da Vercel + load balancer do Render) |
 
-   - `EMAIL_PROVIDER=console` só imprime no log (desenvolvimento) e `memory` é exclusivo de testes: a API **recusa `memory` fora de `NODE_ENV=test`**.
+   - `EMAIL_PROVIDER=console` só imprime no log (desenvolvimento) e `memory` é exclusivo de testes: a API **recusa `memory` fora de `NODE_ENV=test`** e **`console` em `NODE_ENV=production`**.
    - A API valida tudo com Zod ao iniciar e **falha rápido** se faltar algo; veja os logs do deploy.
    - Como a Vercel ainda não existe, o Google (passo 6) e `APP_URL`/`GOOGLE_REDIRECT_URI` serão completados depois. Comece com valores provisórios e corrija no passo 5; o Render redeploya ao salvar.
 
@@ -142,7 +142,7 @@ openssl rand -base64 48
 5. **Deploy** e anote a URL de produção (`https://<app>`).
 6. Volte ao Render e ajuste `APP_URL=https://<app>` e `GOOGLE_REDIRECT_URI=https://<app>/api/auth/google/callback`.
 
-> **Preview deployments** da Vercel não suportam login com Google (o Google não aceita redirect URIs curinga). E-mail e senha funcionam neles.
+> **Preview deployments** da Vercel não suportam nenhum fluxo de autenticação: o guard de origem da API exige `Origin === APP_URL` (a URL de produção), então todo `POST /auth/*` a partir de uma URL de preview recebe 403 (e o preview aponta para a API de produção). Recomendado: desative os preview deployments no projeto da Vercel, ou trate-os como somente de interface (UI).
 
 ---
 
