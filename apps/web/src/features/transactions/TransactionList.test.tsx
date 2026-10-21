@@ -96,4 +96,32 @@ describe("TransactionList", () => {
     expect(sessionMock.request.mock.calls[1]![0]).toContain("cursor=CUR");
     expect(screen.queryByRole("button", { name: "Carregar mais" })).not.toBeInTheDocument();
   });
+
+  it("falha ao carregar mais mantém a lista e mostra erro inline com retry", async () => {
+    sessionMock.request
+      .mockResolvedValueOnce(page([tx("a", "expense", 100, "2026-10-02")], "CUR"))
+      .mockRejectedValueOnce(new Error("x"))
+      .mockResolvedValueOnce(page([tx("b", "expense", 200, "2026-10-01")]));
+    renderList();
+    await userEvent.click(await screen.findByRole("button", { name: "Carregar mais" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Não foi possível carregar mais lançamentos.");
+    expect(screen.getByText(/R\$\s*1,00/, { selector: "[data-amount]" })).toBeInTheDocument();
+    await userEvent.click(within(alert).getByRole("button", { name: "Tentar de novo" }));
+    expect(await screen.findByText(/R\$\s*2,00/, { selector: "[data-amount]" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("enquanto há próxima página, o total do último dia é marcado como parcial", async () => {
+    sessionMock.request
+      .mockResolvedValueOnce(page([tx("a", "expense", 100, "2026-10-03"), tx("b", "expense", 200, "2026-10-02")], "CUR"))
+      .mockResolvedValueOnce(page([tx("c", "expense", 300, "2026-10-02")]));
+    renderList();
+    const headers = await screen.findAllByRole("heading", { level: 3 });
+    expect(within(headers[0]!).queryByText(/parcial/)).not.toBeInTheDocument();
+    expect(within(headers[1]!).getByText(/parcial/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Carregar mais" }));
+    expect(await screen.findByText(/−\s*R\$\s*5,00/)).toBeInTheDocument();
+    expect(screen.queryByText(/parcial/)).not.toBeInTheDocument();
+  });
 });

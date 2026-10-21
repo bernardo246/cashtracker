@@ -2,7 +2,7 @@
 
 import type { AuthResponse, UserDto } from "@cash/shared";
 import { useQueryClient } from "@tanstack/react-query";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createApiClient, type ApiClient } from "./api-client";
 
 type Status = "loading" | "authenticated" | "anonymous";
@@ -32,10 +32,22 @@ export function SessionProvider({ children, onSlow }: { children: ReactNode; onS
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<Status>("loading");
   const [user, setUser] = useState<UserDto | null>(null);
+  const userIdRef = useRef<string | null>(null);
+
+  // Troca de usuário (ou perda de sessão) nunca pode expor dados em cache do anterior.
+  const adopt = useCallback(
+    (next: UserDto | null) => {
+      if (userIdRef.current !== null && userIdRef.current !== (next?.id ?? null)) queryClient.clear();
+      userIdRef.current = next?.id ?? null;
+      setUser(next);
+    },
+    [queryClient],
+  );
 
   const [api] = useState(() =>
     createApiClient({
       onSessionLost: () => {
+        queryClient.clear();
         setUser(null);
         setStatus("anonymous");
       },
@@ -47,7 +59,7 @@ export function SessionProvider({ children, onSlow }: { children: ReactNode; onS
     let active = true;
     const settle = (data: AuthResponse | null) => {
       if (!active) return;
-      setUser(data?.user ?? null);
+      adopt(data?.user ?? null);
       setStatus(data ? "authenticated" : "anonymous");
     };
     // Falhas transitórias (rede/5xx/429): até 3 novas tentativas com 1s, 2s, 4s.
@@ -66,16 +78,16 @@ export function SessionProvider({ children, onSlow }: { children: ReactNode; onS
     return () => {
       active = false;
     };
-  }, [api]);
+  }, [api, adopt]);
 
   const authenticate = useCallback(
     async (path: string, body: unknown) => {
       const data = await api.request<AuthResponse>(path, { method: "POST", json: body });
       api.setAccessToken(data.accessToken);
-      setUser(data.user);
+      adopt(data.user);
       setStatus("authenticated");
     },
-    [api],
+    [api, adopt],
   );
 
   const login = useCallback((email: string, password: string) => authenticate("/auth/login", { email, password }), [authenticate]);
@@ -88,6 +100,7 @@ export function SessionProvider({ children, onSlow }: { children: ReactNode; onS
       console.warn("Falha ao encerrar a sessão no servidor", err);
     } finally {
       api.setAccessToken(null);
+      userIdRef.current = null;
       setUser(null);
       setStatus("anonymous");
       queryClient.clear();

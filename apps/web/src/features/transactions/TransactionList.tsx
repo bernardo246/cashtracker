@@ -68,7 +68,7 @@ export function TransactionList({ month, type, categoryId }: TransactionListProp
       </div>
     );
   }
-  if (q.isError) {
+  if (q.isError && !q.data) {
     return (
       <div role="alert" className="flex flex-col items-start gap-3 py-8">
         <p className="text-text-secondary">Não foi possível carregar os lançamentos.</p>
@@ -89,7 +89,7 @@ export function TransactionList({ month, type, categoryId }: TransactionListProp
 
   return (
     <div className="flex flex-col gap-6">
-      {groups.map((g) => (
+      {groups.map((g, i) => (
         <section key={g.day}>
           <h3 className="mb-2 flex items-baseline justify-between text-sm font-medium text-text-secondary">
             <span className="first-letter:uppercase">{dayLabel(g.day)}</span>
@@ -101,6 +101,12 @@ export function TransactionList({ month, type, categoryId }: TransactionListProp
               )}
             >
               {signed(g.totalCents)}
+              {hasNextPage && i === groups.length - 1 && (
+                <>
+                  <span className="ml-1 text-xs font-normal text-text-secondary">(parcial)</span>
+                  <span className="sr-only">: faltam lançamentos deste dia na próxima página</span>
+                </>
+              )}
             </span>
           </h3>
           <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
@@ -110,6 +116,14 @@ export function TransactionList({ month, type, categoryId }: TransactionListProp
           </ul>
         </section>
       ))}
+      {q.isFetchNextPageError && (
+        <div role="alert" className="flex flex-col items-center gap-2 text-center">
+          <p className="text-text-secondary">Não foi possível carregar mais lançamentos.</p>
+          <Button variant="secondary" disabled={isFetchingNextPage} onClick={() => void fetchNextPage()}>
+            Tentar de novo
+          </Button>
+        </div>
+      )}
       {hasNextPage && (
         <div ref={sentinel} className="flex justify-center">
           <Button variant="secondary" disabled={isFetchingNextPage} onClick={() => void fetchNextPage()}>
