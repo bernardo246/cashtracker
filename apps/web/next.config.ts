@@ -1,3 +1,4 @@
+import withSerwistInit from "@serwist/next";
 import type { NextConfig } from "next";
 
 export function buildRewrites(apiUrl: string | undefined) {
@@ -29,4 +30,11 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// O plugin do Serwist é de webpack: o build usa `next build --webpack`. Desligado fora de produção.
+const withSerwist = withSerwistInit({
+  swSrc: "src/app/sw.ts",
+  swDest: "public/sw.js",
+  disable: process.env.NODE_ENV !== "production",
+});
+
+export default withSerwist(nextConfig);

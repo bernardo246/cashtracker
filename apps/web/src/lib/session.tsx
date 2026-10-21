@@ -19,6 +19,8 @@ export interface Session {
   login(email: string, password: string): Promise<void>;
   register(input: RegisterInput): Promise<void>;
   logout(): Promise<void>;
+  /** Atualiza o usuário em memória (ex.: após editar o nome). */
+  updateUser: (user: UserDto) => void;
   api: ApiClient;
 }
 
@@ -92,9 +94,11 @@ export function SessionProvider({ children, onSlow }: { children: ReactNode; onS
     }
   }, [api, queryClient]);
 
+  const updateUser = useCallback((next: UserDto) => setUser(next), []);
+
   const value = useMemo<Session>(
-    () => ({ status, user, login, register, logout, api }),
-    [status, user, login, register, logout, api],
+    () => ({ status, user, login, register, logout, updateUser, api }),
+    [status, user, login, register, logout, updateUser, api],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

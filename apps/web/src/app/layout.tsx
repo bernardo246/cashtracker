@@ -16,6 +16,8 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Cash Tracker",
   description: "Controle suas entradas e saídas.",
+  appleWebApp: { capable: true, title: "Cash Tracker", statusBarStyle: "black-translucent" },
+  icons: { apple: "/icons/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = {

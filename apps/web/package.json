@@ -7,11 +7,12 @@
     "predev": "pnpm --filter @cash/shared build",
     "dev": "next dev -p 3000",
     "prebuild": "pnpm --filter @cash/shared build",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start -p 3000",
     "pretypecheck": "pnpm --filter @cash/shared build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
+    "icons": "node scripts/generate-icons.mjs",
     "pretest": "pnpm --filter @cash/shared build",
     "test": "vitest run"
   },
@@ -19,6 +20,7 @@
     "@cash/shared": "workspace:*",
     "@fontsource/inter": "5.3.0",
     "@fontsource/jetbrains-mono": "5.3.0",
+    "@serwist/next": "9.5.13",
     "@tailwindcss/postcss": "4.3.3",
     "@tanstack/react-query": "5.104.2",
     "class-variance-authority": "0.7.1",
@@ -43,6 +45,7 @@
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.2",
     "jsdom": "30.1.2",
+    "serwist": "9.5.13",
     "vite": "8.3.4",
     "vitest": "5.0.4"
   }
