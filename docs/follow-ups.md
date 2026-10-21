@@ -1,0 +1,73 @@
+# Follow-ups (pontos menores adiados)
+
+Achados de severidade menor registrados nas revisões por tarefa da v1 e deixados para depois. A revisão final da branch triou essa lista: alguns foram corrigidos na rodada final (abaixo); os demais não bloqueiam o merge.
+
+**Já corrigidos na rodada final:** T3 4xx→500, T7 console em produção, T7 revoke fora da transação, T12 região do pooler no .env.example, T16 erro de próxima página, T16 total parcial do dia.
+
+- **Tarefa 1:** tsconfig.base extra flags (esModuleInterop redundant under NodeNext)
+- **Tarefa 1:** root package.json "type":"module" (not in brief)
+- **Tarefa 1:** ci.yml lacks `permissions: contents: read` and branch filter (consider in T20)
+- **Tarefa 2:** parseBrlToCents strips R$/spaces anywhere ("1R$2"→1200, "1 234"→123400) — consider prefix-only
+- **Tarefa 2:** shiftMonth doesn't validate integer delta
+- **Tarefa 2:** TransactionType defined twice (union + z.enum); CategoryDto icon/color typed string
+- **Tarefa 2:** description "" passes through — T10 should store blank as null (carried to T10)
+- **Tarefa 2:** missing tests for categoryCreateInput limits and transactionListQuery strictness
+- **Tarefa 3:** other Fastify 4xx (413/415) map to 500 INTERNAL_ERROR — generalise 4xx branch
+- **Tarefa 3:** blank optional env values (BREVO_API_KEY=) fail validation — preprocess "" → undefined
+- **Tarefa 3:** dev.ts loads .env from cwd (apps/api) only — document location
+- **Tarefa 3:** src/config/env.test.ts imports test helpers; validEnvSource generates RSA key per call (cache it)
+- **Tarefa 3:** postgres-init.sql only on fresh volume — doc note
+- **Tarefa 3:** zodFields root-level issue key ""
+- **Tarefa 3:** CI has no Postgres/tests yet (T20 owns)
+- **Tarefa 4:** createDb onnotice silences all notices in prod clients — narrow it
+- **Tarefa 4:** migrate.ts unlock/ROLLBACK errors can mask original error — guard with try/catch
+- **Tarefa 4:** trigger test asserts /tipo/i instead of code 23514
+- **Tarefa 4:** category type change not blocked at DB level (T9 makes type immutable via strict schema)
+- **Tarefa 4:** no tests for migration ordering/rollback/concurrency
+- **Tarefa 4:** commit trailers vary (Sonnet vs Opus Co-Authored-By) — cosmetic
+- **Tarefa 5:** verifyDummy lazy hash (first call slower; rejected promise cached) — compute eagerly
+- **Tarefa 5:** JWT tests lack wrong-aud, header kid/alg, alg-confusion cases
+- **Tarefa 5:** refresh tests lack exact 30s boundary and replay-after-revoke-within-10s cases
+- **Tarefa 5:** generate-keys unused SPKI export; kid format undocumented
+- **Tarefa 5:** issue() takes no lock — login racing revokeAllForUser creates new valid family (acceptable)
+- **Tarefa 5:** advisory key space shared with migrator LOCK_ID — consider 2-key form
+- **Tarefa 6:** per-email fresh quota can evict counters in LRU — coarse per-IP cap would help
+- **Tarefa 6:** no tests for register 5/h and refresh 30/min limits
+- **Tarefa 6:** refresh rotated branch sets cookie before getUser; deleted user → INVALID_TOKEN with new cookie set
+- **Tarefa 6:** refresh token issued outside register tx (user without session on failure)
+- **Tarefa 6:** email uniqueness relies on app lowercasing — T8 must normalize (carry to T8)
+- **Tarefa 6:** empty JSON body with content-type json → 400 on refresh/logout — front-end must not send content-type without body (carry to T13)
+- **Tarefa 6:** window-limiter eviction of oldest key can reset victim bucket under 10k-key flood; doesn't use injected clock
+- **Tarefa 6:** email cap allows 15-min password-login lockout of a known email (accepted trade-off of R6)
+- **Tarefa 6:** register/refresh IP-only limits spoofable when hitting Render directly (deploy-level; doc in T21)
+- **Tarefa 7:** console sender logs full reset link; EMAIL_PROVIDER=console allowed in production — refuse/warn in prod
+- **Tarefa 7:** revokeAllForUser after reset tx commit (failure leaves sessions alive)
+- **Tarefa 7:** tests lack concurrent same-token reset, 29-min validity, per-IP limits, log-content assertion, token_hash==sha256, brevo accept header
+- **Tarefa 7:** new 202-before-send test loops until sentText set (hangs to timeout if requestReset fails early); origin/ratelimit tests don't flush background
+- **Tarefa 8:** ID token hardening — requiredClaims exp/iat/sub/nonce, maxTokenAge, azp check when aud is array
+- **Tarefa 8:** user found by email already linked to a different Google sub silently gets a 2nd link
+- **Tarefa 8:** squatter's access JWT valid ≤15 min after takeover (consistent with R8)
+- **Tarefa 8:** unexpected-error log only err.name — add SQLSTATE err.code
+- **Tarefa 8:** no rate limit on /auth/google and callback
+- **Tarefa 8:** test beforeEach builds whole app to reset DB; linkGoogleAccount updatedAt uses new Date() not injected clock
+- **Tarefa 9:** FK-race test monkey-patches drizzle select chain (brittle); unnecessary dynamic import
+- **Tarefa 9:** extra GET /categories/:id not in spec §7.2 (keep; add to spec)
+- **Tarefa 9:** import order in app.ts
+- **Tarefa 10:** untested PATCH to other user's category, Dec→Jan monthRange, foreign cursor, categoryId+cursor; "atualiza updated_at" test doesn't assert it; redundant trim; TOCTOU archive window; app.ts import order
+- **Tarefa 10:** pagination walk loop has no iteration cap; updated_at test doesn't assert PATCH status
+- **Tarefa 11:** formatting indent in reports.service items literal; "ordem desc" test ties; no by-category month=2026-12 test; q.month! non-null assertion
+- **Tarefa 12:** base image not digest-pinned; apk upgrade drift; npm/corepack rm path fragile; deploy output includes src/tests; listen-fail doesn't close app; process.exit may skip pino flush; .env.example pooler host sa-east-1 vs us-east-1
+- **Tarefa 12-W:** proxy matcher `(?!api|…)` lacks `/` anchor; public static files pass through proxy; Button lacks default type="button"; TabsTrigger 36px target; Dialog/Sheet aria-describedby warning; TableHead no scope; proxy test asserts internal x-middleware header
+- **Tarefa 12-W:** /api skip of proxy not verified against Next's compiled matcher; nonce = base64(randomUUID) unusual encoding
+- **Tarefa 13:** logout rejects after clearing state; retry-still-401 leaves dead token; 2xx non-JSON → SyntaxError; AbortError mapped to NETWORK_ERROR (retried); first 401 body not consumed; session tests lack login/register/logout/cache-clear/StrictMode cases; onSlow captured once
+- **Tarefa 13:** "retry ainda 401 limpa o token" test can't distinguish; logout no-reject untested; mount backoff timeout not cleared on unmount; stale token kept after 4 failed mount attempts
+- **Tarefa 14:** ForgotForm `sent` not cleared on resubmit; tests miss USE_GOOGLE/layout redirect/pending/forgot validation; ?erro=google stays in URL; standalone text links <44px; double router.replace; reset token in URL history (inherent)
+- **Tarefa 15:** CategoryChips radiogroup lacks arrow-key/roving tabindex; onSuccess returns invalidate promise (delays toast/close); delete-confirm focus not managed; crossing 768px remounts form (loses input); stale category error after type switch; tests lack Dialog branch/autofocus/400 paths/null description; sheet could be next/dynamic
+- **Tarefa 16:** failed fetchNextPage replaces list with error block (use isError && !data); day total partial across page boundary; observer lacks isFetchingNextPage guard / re-create after load; observer & filters/page untested; h1→h3 jump; router.replace without scroll:false; unvalidated ?categoria; TransactionFilters name clash
+- **Tarefa 17:** Cell key by name; ChartTable first column td not th scope=row; caption placement/margins; skeleton height vs chart height; empty-copy composition brittle; reduced-motion not asserted
+- **Tarefa 17:** redundant outer truncate; transition/reduced-motion not unit-tested; grow-in from 0 on mount
+- **Tarefa 18:** scroller not keyboard focusable; empty items → misleading error; responsive chart logic thinly tested; recent-list error untested; FAB overlaps "Ver todos" mid-scroll (standard FAB behavior)
+- **Tarefa 19:** /icons runtime CacheFirst duplicates precache (stale icon risk); English Lucide names as icon aria-labels; ProfileForm initial state once; CategoryForm Drawer path untested; serwist as devDependency
+- **Tarefa 20:** no Playwright browser cache in CI; no timeout-minutes on jobs; upload report if: failure() (prefer !cancelled() + test-results); duplicate web builds; hardcoded ports/URLs across e2e files; toPass without timeout; postgres devDep in web; non-null link!; 404 for invalid query on test route; audit before lint
+- **Tarefa 20:** x-forwarded-proto list ("https,http") not split → directive omitted (fails open)
+- **Tarefa 21:** docs don't warn future ALTERs on postgres-owned objects fail as cash_app; ALTER DEFAULT PRIVILEGES FOR ROLE postgres only in prose
