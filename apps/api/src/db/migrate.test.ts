@@ -23,6 +23,30 @@ describe("runMigrations", () => {
     expect(row?.r).not.toBeNull();
   });
 
+  it("roda como role sem CREATE no banco quando o schema já existe", async () => {
+    const role = "cash_migrator_test";
+    const pw = "migrator_test_pw";
+    await sql.unsafe(`DROP ROLE IF EXISTS ${role}`);
+    await sql.unsafe(`CREATE ROLE ${role} LOGIN PASSWORD '${pw}'`);
+    try {
+      await sql.unsafe(`GRANT USAGE, CREATE ON SCHEMA app TO ${role}`);
+      await sql.unsafe(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA app TO ${role}`);
+      const u = new URL(url);
+      u.username = role;
+      u.password = pw;
+      const restricted = createDb(u.toString());
+      try {
+        expect(await runMigrations(restricted.sql)).toEqual([]);
+      } finally {
+        await restricted.close();
+      }
+    } finally {
+      await sql.unsafe(`REVOKE ALL ON ALL TABLES IN SCHEMA app FROM ${role}`);
+      await sql.unsafe(`REVOKE ALL ON SCHEMA app FROM ${role}`);
+      await sql.unsafe(`DROP ROLE ${role}`);
+    }
+  });
+
   it("rejeita lançamento cujo tipo difere do tipo da categoria", async () => {
     const [u] = await sql<{ id: string }[]>`
       INSERT INTO app.users (email, name) VALUES ('a@b.com', 'A') RETURNING id`;

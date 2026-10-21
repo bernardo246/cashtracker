@@ -12,7 +12,9 @@ export async function runMigrations(sql: postgres.Sql, dir: URL = DEFAULT_DIR): 
   try {
     await conn`SELECT pg_advisory_lock(${LOCK_ID})`;
     try {
-      await conn.unsafe("CREATE SCHEMA IF NOT EXISTS app");
+      // CREATE SCHEMA exige CREATE no banco mesmo com IF NOT EXISTS; só cria se faltar (permite role de menor privilégio).
+      const [ns] = await conn<{ exists: boolean }[]>`SELECT to_regnamespace('app') IS NOT NULL AS exists`;
+      if (!ns?.exists) await conn.unsafe("CREATE SCHEMA app");
       await conn.unsafe(
         `CREATE TABLE IF NOT EXISTS app.schema_migrations (
            name text PRIMARY KEY,

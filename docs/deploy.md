@@ -37,12 +37,13 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA app
   GRANT USAGE, SELECT ON SEQUENCES TO cash_app;
 ```
 
-O schema `app` só existe depois da primeira migration, então escolha uma das opções:
+Fluxo recomendado:
 
-- **A (mais simples):** faça o primeiro deploy com a URI do `postgres`; depois de o schema existir, rode o SQL acima e troque o `DATABASE_URL` no Render para o usuário `cash_app` (no pooler o usuário tem o formato `cash_app.<ref>`). Atenção: as tabelas criadas pelo `postgres` continuam pertencendo a ele; os `GRANT ... ON ALL TABLES` cobrem as existentes, e o `ALTER DEFAULT PRIVILEGES` precisa ser executado **como o role que criará as futuras tabelas** (para migrations futuras rodadas pelo `cash_app`, rode-o logado como `cash_app`, ou use `ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA app ...`).
-- **B:** antes do primeiro deploy, crie o schema já pertencendo ao role: `CREATE SCHEMA app AUTHORIZATION cash_app;`.
+1. Faça o **primeiro deploy com a URI do `postgres`** (dono): as migrations criam o schema `app` e as tabelas.
+2. Rode o SQL acima no SQL Editor (o schema já existe).
+3. No Render, troque o `DATABASE_URL` para o usuário `cash_app` (no pooler o usuário é `cash_app.<ref>`, com a mesma senha definida no `CREATE ROLE`). O migrator só cria o schema se ele não existir, então não exige `CREATE` no banco.
 
-Ressalva: o migrator executa `CREATE SCHEMA IF NOT EXISTS app` a cada start, e o Postgres exige permissão `CREATE` no banco para esse comando mesmo quando o schema já existe. Se o deploy com `cash_app` falhar com "permission denied for database", conceda `GRANT CREATE ON DATABASE postgres TO cash_app;` ou volte a usar o `postgres` nas migrations. Se preferir simplicidade, pule esta seção.
+As tabelas criadas pelo `postgres` continuam dele; os `GRANT ... ON ALL TABLES` cobrem as existentes. Migrations futuras que criem tabelas, se executadas como `cash_app`, geram tabelas dele; se quiser que as futuras tabelas criadas pelo `postgres` também sejam acessíveis, rode `ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA app GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO cash_app;`. Se preferir simplicidade, pule esta seção.
 
 ---
 
