@@ -1,9 +1,9 @@
-import { expect, test } from "./support/test";
+import { expect, test } from "@playwright/test";
 
 test("PWA: service worker ativo e manifest standalone", async ({ page, request }, testInfo) => {
   test.skip(testInfo.project.name !== "Desktop Chrome", "service worker verificado só no Chromium");
 
-  await page.goto("/login", { waitUntil: "networkidle" });
+  await page.goto("/login");
   const scope = await page.evaluate(async () => {
     const reg = await navigator.serviceWorker.ready;
     return reg.scope;

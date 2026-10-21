@@ -43,3 +43,18 @@ describe("proxy", () => {
     expect(res.headers.get("x-middleware-request-x-nonce")).toBe(nonce);
   });
 });
+
+describe("proxy: upgrade-insecure-requests", () => {
+  it("omite a diretiva em HTTP", () => {
+    expect(csp(proxy(new NextRequest("http://127.0.0.1:3100/")))).not.toContain("upgrade-insecure-requests");
+  });
+
+  it("inclui a diretiva com x-forwarded-proto=https", () => {
+    const req = new NextRequest("http://localhost:3000/", { headers: { "x-forwarded-proto": "https" } });
+    expect(csp(proxy(req))).toContain("upgrade-insecure-requests");
+  });
+
+  it("inclui a diretiva quando a URL é https", () => {
+    expect(csp(proxy(new NextRequest("https://app.example.com/")))).toContain("upgrade-insecure-requests");
+  });
+});

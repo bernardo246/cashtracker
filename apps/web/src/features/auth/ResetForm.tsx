@@ -42,7 +42,7 @@ export function ResetForm() {
         </Link>
       ) : null}
       {token ? (
-        <form onSubmit={(e) => void onSubmit(e)} noValidate className="flex flex-col gap-5">
+        <form method="post" onSubmit={(e) => void onSubmit(e)} noValidate className="flex flex-col gap-5">
           <PasswordField
             name="password"
             label="Nova senha"

@@ -1,4 +1,4 @@
-import { expect, test } from "./support/test";
+import { expect, test } from "@playwright/test";
 import { addExpense, open, signUp, uniqueEmail } from "./support/helpers";
 
 const ROUTES = ["/visao-geral", "/lancamentos", "/gastos", "/entradas", "/ajustes"];

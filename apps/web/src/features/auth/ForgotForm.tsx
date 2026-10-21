@@ -27,7 +27,7 @@ export function ForgotForm() {
     <div className="flex flex-col gap-6">
       {sent ? <FormNotice>Se o e-mail existir, enviamos um link. Confira também a caixa de spam.</FormNotice> : null}
       {error ? <FormAlert>{error}</FormAlert> : null}
-      <form onSubmit={(e) => void onSubmit(e)} noValidate className="flex flex-col gap-5">
+      <form method="post" onSubmit={(e) => void onSubmit(e)} noValidate className="flex flex-col gap-5">
         <Field name="email" label="E-mail" type="email" autoComplete="email" inputMode="email" error={fields.email} />
         <SubmitButton pending={pending} label="Enviar link" pendingLabel="Enviando…" />
       </form>

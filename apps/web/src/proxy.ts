@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 // Gera um nonce por requisição e aplica a CSP da spec §10.
 export function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  // Só sobre HTTPS: em http local (E2E, WebKit) a diretiva quebraria o carregamento dos assets.
+  const https = request.headers.get("x-forwarded-proto") === "https" || request.nextUrl.protocol === "https:";
   const isDev = process.env.NODE_ENV === "development";
   const csp = [
     "default-src 'self'",
@@ -18,7 +20,7 @@ export function proxy(request: NextRequest) {
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    "upgrade-insecure-requests",
+    ...(https ? ["upgrade-insecure-requests"] : []),
   ].join("; ");
 
   const requestHeaders = new Headers(request.headers);

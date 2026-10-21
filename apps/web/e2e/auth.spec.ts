@@ -1,4 +1,4 @@
-import { test } from "./support/test";
+import { test } from "@playwright/test";
 import { logIn, logOut, signUp, uniqueEmail } from "./support/helpers";
 
 test("cadastro, logout e login com a mesma senha", async ({ page }) => {

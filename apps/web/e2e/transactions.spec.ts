@@ -1,4 +1,4 @@
-import { expect, test } from "./support/test";
+import { expect, test } from "@playwright/test";
 import { addExpense, open, signUp, uniqueEmail } from "./support/helpers";
 
 test("lançar R$ 45,90 em Delivery aparece em Lançamentos e em Gastos", async ({ page }) => {

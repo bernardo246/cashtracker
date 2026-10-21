@@ -2,9 +2,10 @@ import { expect, type Page } from "@playwright/test";
 
 export const PASSWORD = "senha-segura-123";
 
-/** Navega e espera a hidratação terminar (rede ociosa): antes disso o submit seria nativo, não do React. */
+/** Navega e espera a hidratação (marcador em <html>): antes disso o submit seria nativo, não do React. */
 export async function open(page: Page, path: string): Promise<void> {
-  await page.goto(path, { waitUntil: "networkidle" });
+  await page.goto(path);
+  await expect(page.locator("html")).toHaveAttribute("data-hydrated", "true");
 }
 
 let seq = 0;

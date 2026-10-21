@@ -34,7 +34,7 @@ export function LoginForm() {
     <div className="flex flex-col gap-6">
       {reset ? <FormNotice>Senha redefinida. Entre com a nova senha.</FormNotice> : null}
       {alert ? <FormAlert>{alert}</FormAlert> : null}
-      <form onSubmit={(e) => void onSubmit(e)} noValidate className="flex flex-col gap-5">
+      <form method="post" onSubmit={(e) => void onSubmit(e)} noValidate className="flex flex-col gap-5">
         <Field name="email" label="E-mail" type="email" autoComplete="email" inputMode="email" error={fields.email} />
         <PasswordField name="password" label="Senha" autoComplete="current-password" error={fields.password} />
         <Link href="/esqueci-senha" className="self-start py-2 text-sm text-primary hover:underline">

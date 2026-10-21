@@ -1,4 +1,4 @@
-import { expect, test } from "./support/test";
+import { expect, test } from "@playwright/test";
 import { logIn, logOut, open, signUp, uniqueEmail } from "./support/helpers";
 
 const NEW_PASSWORD = "outra-senha-456";
