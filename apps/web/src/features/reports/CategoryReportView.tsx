@@ -1,22 +1,16 @@
 "use client";
 
 import { currentMonthSaoPaulo, formatBrl, isMonthKey, monthLabel, type TransactionType } from "@cash/shared";
-import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTransactionSheet } from "@/features/transactions/TransactionSheetProvider";
+import { CategoryBarChart } from "./CategoryBarChart";
 import { ChartTable } from "./ChartTable";
 import { categoryLabel, formatShare } from "./format";
 import { MonthPicker } from "./MonthPicker";
 import { useByCategory } from "./queries";
-
-// Recharts só no cliente: fora do bundle do servidor e sem avisos de tamanho no SSR.
-const CategoryBarChart = dynamic(() => import("./CategoryBarChart").then((m) => m.CategoryBarChart), {
-  ssr: false,
-  loading: () => <Skeleton className="h-40 w-full" />,
-});
 
 const COPY = {
   expense: { eyebrow: "GASTOS", empty: "Nenhum gasto em", color: "var(--color-danger)", caption: "Gastos por categoria" },
@@ -62,7 +56,7 @@ export function CategoryReportView({ type }: { type: TransactionType }) {
 
       {q.isPending ? (
         <div role="status" aria-label="Carregando relatório" className="flex flex-col gap-3">
-          {[0, 1, 2].map((i) => (
+          {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-10 w-full" />
           ))}
         </div>
@@ -94,7 +88,7 @@ export function CategoryReportView({ type }: { type: TransactionType }) {
               rows={q.data.items.map((i) => [categoryLabel(i), formatBrl(i.totalCents), formatShare(i.share)])}
             />
           ) : (
-            <CategoryBarChart items={q.data.items} color={copy.color} />
+            <CategoryBarChart items={q.data.items} color={copy.color} label={`${copy.caption}, ${periodText}`} />
           )}
         </section>
       )}

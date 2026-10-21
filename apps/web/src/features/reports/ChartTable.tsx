@@ -29,11 +29,17 @@ export function ChartTable({ caption, columns, rows }: ChartTableProps) {
       <TableBody>
         {rows.map((row, i) => (
           <TableRow key={i}>
-            {row.map((cell, j) => (
-              <TableCell key={j} className={cn(columns[j]?.numeric && "num text-right")}>
-                {cell}
-              </TableCell>
-            ))}
+            {row.map((cell, j) =>
+              j === 0 ? (
+                <TableHead key={j} scope="row" className="h-auto p-3 font-normal text-text-primary">
+                  {cell}
+                </TableHead>
+              ) : (
+                <TableCell key={j} className={cn(columns[j]?.numeric && "num text-right")}>
+                  {cell}
+                </TableCell>
+              ),
+            )}
           </TableRow>
         ))}
       </TableBody>
