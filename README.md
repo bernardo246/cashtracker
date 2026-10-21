@@ -2,9 +2,10 @@
 
 Aplicação web (PWA, mobile-first) para registrar **entradas e saídas de dinheiro** por categoria e acompanhar a vida financeira em dashboards.
 
-> **Status:** em fase de design. Nenhum código de produto foi escrito ainda.
-> Este README registra as decisões já aprovadas. Documentos detalhados:
+> **Status:** v1 implementada (web, API, testes e CI). Falta apenas publicar; veja o guia de deploy.
+> Documentos:
 > - Especificação: [`docs/superpowers/specs/2026-10-19-cash-tracker-design.md`](docs/superpowers/specs/2026-10-19-cash-tracker-design.md)
+> - Guia de deploy: [`docs/deploy.md`](docs/deploy.md)
 > - Configuração do Google OAuth: [`docs/setup-google-oauth.md`](docs/setup-google-oauth.md)
 > - Plano de implementação: [`docs/superpowers/plans/2026-10-19-cash-tracker.md`](docs/superpowers/plans/2026-10-19-cash-tracker.md)
 
@@ -14,14 +15,15 @@ Aplicação web (PWA, mobile-first) para registrar **entradas e saídas de dinhe
 
 1. [Funcionalidades](#funcionalidades)
 2. [Arquitetura](#arquitetura)
-3. [Stack](#stack)
-4. [Decisões técnicas](#decisões-técnicas)
-5. [Modelo de dados](#modelo-de-dados)
-6. [Autenticação](#autenticação)
-7. [Design system](#design-system)
-8. [Deploy e custo zero](#deploy-e-custo-zero)
-9. [Estrutura do repositório](#estrutura-do-repositório)
-10. [Fora do escopo da v1](#fora-do-escopo-da-v1)
+3. [Como rodar localmente](#como-rodar-localmente)
+4. [Stack](#stack)
+5. [Decisões técnicas](#decisões-técnicas)
+6. [Modelo de dados](#modelo-de-dados)
+7. [Autenticação](#autenticação)
+8. [Design system](#design-system)
+9. [Deploy e custo zero](#deploy-e-custo-zero)
+10. [Estrutura do repositório](#estrutura-do-repositório)
+11. [Fora do escopo da v1](#fora-do-escopo-da-v1)
 
 ---
 
@@ -65,14 +67,41 @@ Aplicação web (PWA, mobile-first) para registrar **entradas e saídas de dinhe
 
 ---
 
+## Como rodar localmente
+
+**Pré-requisitos:** Node 24 (use `fnm use` ou `nvm use`, que leem o `.nvmrc`), pnpm 10.34.7 via `corepack enable` e Docker.
+
+```bash
+docker compose up -d                      # Postgres 17 em localhost:5432
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env.local
+pnpm install
+pnpm --filter @cash/api keys:generate     # cole JWT_PRIVATE_KEY e JWT_KEY_ID em apps/api/.env
+pnpm dev                                  # web em :3000 e API em :4000
+```
+
+- Em `apps/api/.env`, `DATABASE_URL=postgres://cash:cash@localhost:5432/cash` para o `pnpm dev`. `host.docker.internal` só vale se você rodar o container da API localmente.
+- Com `EMAIL_PROVIDER=console` os e-mails são impressos no terminal da API.
+- Login com Google local: veja [`docs/setup-google-oauth.md`](docs/setup-google-oauth.md) (redirect `http://localhost:3000/api/auth/google/callback`).
+
+| Comando | O que faz |
+|---|---|
+| `pnpm test` | Testes unitários e de integração (precisa do Postgres do Docker) |
+| `pnpm e2e` | E2E Playwright (iPhone e desktop), web em `:3100`, API em `:4100`, banco `cash_e2e` |
+| `pnpm lint` / `pnpm typecheck` | ESLint e TypeScript |
+| `pnpm audit:ci` | `pnpm audit` (deve dar 0 vulnerabilidades) |
+| `pnpm build` | Build de todos os pacotes |
+
+---
+
 ## Stack
 
 | Camada | Tecnologia |
 |---|---|
 | Monorepo | pnpm workspaces |
-| Frontend | Next.js (App Router), React, TypeScript, Tailwind CSS, shadcn/ui (Radix), Lucide React, Recharts, TanStack Query, Serwist (PWA) |
+| Frontend | Next.js (App Router), React, TypeScript, Tailwind CSS, shadcn/ui (Radix), Lucide React, Recharts (apenas no gráfico mensal da visão geral), TanStack Query, Serwist (PWA) |
 | Fontes | Inter + JetBrains Mono via `@fontsource` (self-hosted) |
-| Backend | Node.js, Fastify, TypeScript |
+| Backend | Node.js 24, Fastify, TypeScript |
 | Banco / ORM | PostgreSQL (Supabase), Drizzle ORM + driver `postgres`, migrations em SQL puro (sem `drizzle-kit`, que traz dependência vulnerável) |
 | Lint | ESLint + `typescript-eslint` + `eslint-plugin-react-hooks` (sem `eslint-config-next`, que traz dependência vulnerável) |
 | Validação | Zod, com schemas compartilhados entre front e back (`packages/shared`) |
@@ -106,6 +135,10 @@ As versões exatas estão no [plano de implementação](docs/superpowers/plans/2
 | 16 | **Ping de keep-alive gratuito** (cron-job.org → `https://<app>.vercel.app/api/health` a cada 10 min; o `/health` faz `SELECT 1`, mantendo também o Supabase ativo) | O Render free dorme após 15 min, e acordar leva ~50s. As 750 h/mês grátis cobrem 1 serviço 24/7 | Aceitar o cold start |
 | 17 | **PWA** em vez de app nativo | Instalável sem App Store/Play Store e sem custo | React Native / lojas |
 | 18 | **Somente tema escuro** | Segue o Verdant (dark-first); um tema só reduz estados a testar | Claro + escuro |
+| 19 | **Build do web com `next build --webpack`** | O plugin Serwist (service worker do PWA) exige webpack; o dev usa Turbopack | Build com Turbopack |
+| 20 | **Dashboards por categoria com barras em HTML**; Recharts só no gráfico mensal | Menos JavaScript e acessibilidade mais simples | Recharts em todos |
+| 21 | **CSP com `style-src 'unsafe-inline'`** e `upgrade-insecure-requests` só em HTTPS | Estilos inline do Next/Radix/Recharts; o upgrade quebraria o E2E e o dev em HTTP | CSP com nonce de estilo |
+| 22 | **`TRUST_PROXY_HOPS=2` em produção** | IP real do cliente atrás do edge da Vercel e do load balancer do Render | Confiar em qualquer `X-Forwarded-For` |
 
 ---
 
@@ -165,7 +198,7 @@ O visual combina dois documentos da raiz do repositório:
 | Tipografia display (`clamp()`), eyebrow em caixa alta | Medical Sports × Locomotive | Telas de login/cadastro/reset e números de destaque dos dashboards |
 | CTA em pílula (`radius 100px`) | Medical Sports | Botão "Novo lançamento" (FAB no mobile) e "Entrar com Google". Demais botões com raio de 8px (Verdant) |
 | Motion | Ambos | Easing `cubic-bezier(0.16, 1, 0.3, 1)` + durações 140–300 ms; respeita `prefers-reduced-motion`; sem scrollytelling |
-| Componentes | Verdant | Tailwind, shadcn/ui (Radix), Lucide, Recharts |
+| Componentes | Verdant | Tailwind, shadcn/ui (Radix), Lucide; Recharts só no gráfico mensal (os dashboards por categoria usam barras em HTML) |
 | Navegação | Adaptação | Sidebar no desktop; **barra inferior** no mobile (Visão geral · Lançamentos · Gastos · Entradas · Ajustes) + FAB "+" |
 
 ---
@@ -181,11 +214,13 @@ O visual combina dois documentos da raiz do repositório:
 | Google Cloud | OAuth 2.0 | Grátis | Escopos básicos (`openid email profile`) não exigem verificação do app |
 | cron-job.org | Keep-alive | Grátis | — |
 
+Passo a passo completo em [`docs/deploy.md`](docs/deploy.md).
+
 ---
 
 ## Estrutura do repositório
 
-Estrutura planejada:
+Estrutura:
 
 ```
 cash_tracker/
@@ -195,6 +230,8 @@ cash_tracker/
 ├── packages/
 │   └── shared/           # Schemas Zod e tipos compartilhados
 ├── docs/
+│   ├── deploy.md         # Guia de deploy
+│   ├── setup-google-oauth.md
 │   └── superpowers/
 │       ├── specs/        # Especificação de design
 │       └── plans/        # Plano de implementação

@@ -76,6 +76,8 @@ APP_URL=http://localhost:3000
 
 O mesmo cliente OAuth serve para dev e produção, pois ambas as URIs estão cadastradas.
 
+Passo a passo completo do deploy (Render, Vercel, Supabase etc.): [`deploy.md`](deploy.md). No Render, defina também `TRUST_PROXY_HOPS=2`.
+
 ## 5. Modo de teste → produção
 
 Um app novo começa em **Teste**: só as contas listadas em **Público-alvo → Usuários de teste** conseguem entrar (até 100).
