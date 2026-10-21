@@ -1,7 +1,8 @@
+import { DrizzleQueryError } from "drizzle-orm/errors";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { badRequest, conflict, notFound, unauthorized } from "../src/http/errors.js";
-import { buildTestApp, closeTestApps } from "./helpers/app.js";
+import { buildTestApp, closeTestApps, testEnv } from "./helpers/app.js";
 
 afterEach(closeTestApps);
 
@@ -84,5 +85,45 @@ describe("error handler", () => {
     });
     expect(r.statusCode).toBe(400);
     expect(err(r).code).toBe("BAD_REQUEST");
+  });
+
+  it("corpo grande demais (413) → 413 BAD_REQUEST, logado em info", async () => {
+    const lines: string[] = [];
+    const { app } = await buildTestApp({ env: testEnv({ LOG_LEVEL: "info" }), logStream: { write: (m) => void lines.push(m) } });
+    app.post("/j", () => ({}));
+    const r = await app.inject({
+      method: "POST",
+      url: "/j",
+      headers: { "content-type": "application/json" },
+      payload: JSON.stringify({ x: "a".repeat(1_100_000) }),
+    });
+    expect(r.statusCode).toBe(413);
+    expect(err(r).code).toBe("BAD_REQUEST");
+    expect(lines.some((l) => l.includes('"level":50'))).toBe(false);
+  });
+
+  it("content-type não suportado (415) → 415 BAD_REQUEST", async () => {
+    const { app } = await buildTestApp();
+    app.post("/j", () => ({}));
+    const r = await app.inject({ method: "POST", url: "/j", headers: { "content-type": "application/xml" }, payload: "<a/>" });
+    expect(r.statusCode).toBe(415);
+    expect(err(r).code).toBe("BAD_REQUEST");
+  });
+
+  it("erro de banco não vaza query nem parâmetros no log", async () => {
+    const lines: string[] = [];
+    const { app } = await buildTestApp({ env: testEnv({ LOG_LEVEL: "info" }), logStream: { write: (m) => void lines.push(m) } });
+    app.get("/db", () => {
+      const cause = Object.assign(new Error("duplicate key"), { code: "23505" });
+      throw new DrizzleQueryError("select * from users where hash = $1", ["$argon2id$FAKEHASH", "ana@segredo.com"], cause);
+    });
+    const r = await app.inject({ method: "GET", url: "/db" });
+    expect(r.statusCode).toBe(500);
+    const log = lines.join("\n");
+    expect(log).toContain("23505");
+    expect(log).not.toContain("FAKEHASH");
+    expect(log).not.toContain("ana@segredo.com");
+    expect(log).not.toContain("params:");
+    expect(log).not.toContain("select * from users");
   });
 });

@@ -48,7 +48,7 @@ export function createPasswordResetService({ db, emailSender, refreshTokens, app
     async resetPassword(token: string, password: string): Promise<void> {
       const passwordHash = await hashPassword(password);
       const at = now();
-      const userId = await db.transaction(async (tx) => {
+      await db.transaction(async (tx) => {
         const [row] = await tx
           .update(passwordResetTokens)
           .set({ usedAt: at })
@@ -62,9 +62,9 @@ export function createPasswordResetService({ db, emailSender, refreshTokens, app
           .returning({ userId: passwordResetTokens.userId });
         if (!row) throw badRequest("INVALID_RESET_TOKEN", "Link inválido ou expirado");
         await tx.update(users).set({ passwordHash, emailVerified: true, updatedAt: at }).where(eq(users.id, row.userId));
-        return row.userId;
+        // na mesma transação: ou troca a senha e revoga as sessões, ou nada muda
+        await refreshTokens.revokeAllForUser(row.userId, tx);
       });
-      await refreshTokens.revokeAllForUser(userId);
     },
   };
 }

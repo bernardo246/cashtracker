@@ -13,6 +13,7 @@ import { createMemorySender } from "./email/memory.js";
 import { testMailboxRoutes } from "./modules/dev/test-mailbox.routes.js";
 import { registerAuthGuard } from "./http/auth-guard.js";
 import { registerErrorHandler } from "./http/errors.js";
+import { serializeErr } from "./http/log-serializers.js";
 import { categoryRoutes } from "./modules/categories/categories.routes.js";
 import { createCategoryService } from "./modules/categories/categories.service.js";
 import { reportRoutes } from "./modules/reports/reports.routes.js";
@@ -51,6 +52,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       // igual ao serializer padrão do Fastify, mas sem a query string: ela pode carregar segredos
       // (ex.: code/state do callback do Google)
       serializers: {
+        err: serializeErr,
         req: (req: FastifyRequest) => ({
           method: req.method,
           url: req.url.split("?", 1)[0],

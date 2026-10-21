@@ -184,4 +184,25 @@ describe("auth: rate limit do forgot-password", () => {
     }
     expect(codes).toEqual([202, 202, 202, 429]);
   });
+
+  it("falha ao revogar sessões desfaz a troca de senha (mesma transação)", async () => {
+    const { app, deps, emails, flushBackground } = await buildTestApp();
+    const { user } = await registerUser(app, { email: "atomic@x.com" });
+    await forgot(app, "atomic@x.com", flushBackground);
+    const token = tokenFrom(emails[0]!.text);
+    const [before] = await deps.sql<{ password_hash: string }[]>`SELECT password_hash FROM app.users WHERE id = ${user.id}`;
+    const { createPasswordResetService } = await import("../../src/modules/auth/password-reset.service.js");
+    const service = createPasswordResetService({
+      db: deps.db,
+      emailSender: { send: () => Promise.resolve() },
+      refreshTokens: {
+        revokeAllForUser: (_id: string, tx?: unknown) =>
+          Promise.reject(new Error(tx ? "falha ao revogar" : "fora da transação")),
+      } as never,
+      appUrl: deps.env.APP_URL,
+    });
+    await expect(service.resetPassword(token, NEW_PASSWORD)).rejects.toThrow("falha ao revogar");
+    const [after] = await deps.sql<{ password_hash: string }[]>`SELECT password_hash FROM app.users WHERE id = ${user.id}`;
+    expect(after!.password_hash).toBe(before!.password_hash);
+  });
 });

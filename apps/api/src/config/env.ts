@@ -33,6 +33,9 @@ const schema = z
     if (env.EMAIL_PROVIDER === "memory" && env.NODE_ENV !== "test") {
       ctx.addIssue({ code: "custom", path: ["EMAIL_PROVIDER"], message: "memory só com NODE_ENV=test" });
     }
+    if (env.EMAIL_PROVIDER === "console" && env.NODE_ENV === "production") {
+      ctx.addIssue({ code: "custom", path: ["EMAIL_PROVIDER"], message: "console não é permitido em produção (loga links de reset)" });
+    }
     if (env.EMAIL_PROVIDER !== "brevo") return;
     for (const key of ["BREVO_API_KEY", "EMAIL_FROM"] as const) {
       if (!env[key]) {

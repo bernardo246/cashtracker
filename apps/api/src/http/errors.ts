@@ -49,9 +49,10 @@ export function registerErrorHandler(app: FastifyInstance): void {
     if (status === 429) {
       return send(429, "RATE_LIMITED", "Muitas tentativas. Tente novamente em instantes.");
     }
-    if (status === 400) {
-      // erros do próprio Fastify (JSON malformado, corpo inválido)
-      return send(400, "BAD_REQUEST", "Requisição inválida.");
+    if (status !== undefined && status >= 400 && status < 500) {
+      // erros 4xx do próprio Fastify (JSON malformado, 413, 415...): culpa do cliente, não é erro do servidor
+      req.log.info({ statusCode: status }, "requisição rejeitada");
+      return send(status, "BAD_REQUEST", "Requisição inválida.");
     }
     req.log.error({ err }, "erro inesperado");
     return send(500, "INTERNAL_ERROR", "Algo deu errado. Tente novamente.");

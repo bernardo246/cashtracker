@@ -83,7 +83,7 @@ export function authRoutes(app: FastifyInstance, { env, auth, jwt, refreshTokens
       const task = Promise.resolve()
         .then(() => passwordReset.requestReset(email))
         .catch((err: unknown) => {
-          req.log.error({ err: err instanceof Error ? err.message : "falha" }, "falha ao processar esqueci-a-senha");
+          req.log.error({ err }, "falha ao processar esqueci-a-senha");
         });
       onBackgroundTask?.(task);
       return reply.status(202).send({ message: "Se o e-mail existir, enviamos um link" });
