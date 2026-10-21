@@ -11,6 +11,7 @@
     "postbuild": "node scripts/copy-migrations.mjs",
     "pretypecheck": "pnpm --filter @cash/shared build",
     "typecheck": "tsc --noEmit -p .",
+    "prelint": "pnpm --filter @cash/shared build",
     "lint": "eslint .",
     "pretest": "pnpm --filter @cash/shared build",
     "test": "vitest run",
