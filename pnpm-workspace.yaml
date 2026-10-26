@@ -1,3 +1,11 @@
 packages: ["apps/*", "packages/*"]
 minimumReleaseAge: 10080
 onlyBuiltDependencies: ["argon2"]
+# Correções de segurança em dependências indiretas (pnpm audit). Cada override vale só para
+# a faixa vulnerável e mantém a mesma major. Remover quando os pacotes-pai trouxerem a versão
+# corrigida por conta própria.
+overrides:
+  "zod@<4.6.6": "^4.6.6"            # @serwist/next > zod — GHSA-mrhx-c7xc-m3w5
+  "undici@>=8.0.0 <8.12.2": "^8.12.2" # jsdom > undici — GHSA-xjj6-f33q-929c e outros
+  "fast-uri@>=4.0.0 <4.2.3": "^4.2.3" # fastify > @fastify/ajv-compiler > fast-uri
+  "fast-uri@>=3.0.0 <3.1.9": "^3.1.9" # fastify > @fastify/ajv-compiler > ajv > fast-uri
