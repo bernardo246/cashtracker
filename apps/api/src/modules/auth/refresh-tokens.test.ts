@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { createDb } from "../../db/client.js";
@@ -151,5 +152,51 @@ describe("refresh tokens", () => {
       const rows = await db.select().from(refreshTokens);
       expect(rows.every((x) => x.revokedAt !== null)).toBe(true);
     }
+  });
+});
+
+describe("purgeStale", () => {
+  const rowCount = async () => (await db.select().from(refreshTokens)).length;
+
+  it("apaga expirados e revogados há mais de 30 dias; mantém válidos e recentes", async () => {
+    await store.issue(userId); // expira em +30d
+    const revoked = await store.issue(userId);
+    await store.revokeFamilyByToken(revoked.token); // revoked_at = t0
+    const recentRevoked = await store.issue(userId);
+    advance(31 * DAY); // old expirou há 1 dia; revoked tem 31 dias
+    await store.revokeFamilyByToken(recentRevoked.token);
+    const valid = await store.issue(userId);
+    advance(1 * DAY); // old expirado há 2d: ainda dentro da retenção
+    expect(await store.purgeStale(clock)).toBe(1); // só `revoked` (revogado há 32d)
+    expect(await rowCount()).toBe(3);
+    advance(30 * DAY); // old expirado há 32d; recentRevoked revogado há 31d; valid ainda válido
+    expect(await store.purgeStale(clock)).toBe(2);
+    const rows = await db.select().from(refreshTokens);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.tokenHash).toBe(createHash("sha256").update(valid.token).digest("hex"));
+  });
+
+  it("mantém rotacionado ainda válido e o reuso continua detectado após a limpeza", async () => {
+    const t1 = await store.issue(userId);
+    const r = await store.rotate(t1.token);
+    if (r.status !== "rotated") throw new Error("esperava rotated");
+    advance(20 * DAY);
+    expect(await store.purgeStale(clock)).toBe(0);
+    expect(await rowCount()).toBe(2);
+    expect(await store.rotate(t1.token)).toEqual({ status: "reuse_detected", userId });
+    expect(await store.rotate(r.token)).toEqual({ status: "invalid" });
+  });
+
+  it("apaga em lotes e não viola a FK replaced_by em cadeias antigas", async () => {
+    let tok = (await store.issue(userId)).token;
+    for (let i = 0; i < 3; i++) {
+      advance(1000);
+      const r = await store.rotate(tok);
+      if (r.status !== "rotated") throw new Error("esperava rotated");
+      tok = r.token;
+    }
+    advance(70 * DAY);
+    expect(await store.purgeStale(clock)).toBe(4);
+    expect(await rowCount()).toBe(0);
   });
 });
