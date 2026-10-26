@@ -5,6 +5,8 @@ import { refreshTokens } from "../../db/schema.js";
 
 const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const GRACE_MS = 30_000;
+const PURGE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+const PURGE_BATCH = 5000;
 
 export type RotateResult =
   | { status: "rotated"; userId: string; token: string; expiresAt: Date }
@@ -108,6 +110,40 @@ export function createRefreshTokenStore(db: Db, now: () => Date = () => new Date
           .set({ revokedAt: now() })
           .where(and(eq(refreshTokens.familyId, row.familyId), isNull(refreshTokens.revokedAt)));
       });
+    },
+
+    /**
+     * Apaga tokens expirados ou revogados há mais de 30 dias. Rotacionados ainda válidos ficam (reuse_detected
+     * depende deles). Linhas já inúteis para rotate() (expiradas/revogadas) não precisam do advisory lock.
+     * Só apaga linha referenciada por replaced_by junto com (ou depois de) quem a referencia; ORDER BY created_at
+     * leva o antecessor antes do sucessor dentro de um lote (a FK é checada ao fim do statement).
+     */
+    async purgeStale(at: Date = now()): Promise<number> {
+      const iso = new Date(at.getTime() - PURGE_RETENTION_MS).toISOString();
+      let total = 0;
+      for (;;) {
+        const rows = await db.execute<{ n: number }>(sql`
+          WITH stale AS (
+            SELECT id, replaced_by, created_at FROM app.refresh_tokens
+            WHERE expires_at < ${iso}::timestamptz OR revoked_at < ${iso}::timestamptz
+          ), d AS (
+            DELETE FROM app.refresh_tokens
+            WHERE id IN (
+              SELECT s.id FROM stale s
+              WHERE NOT EXISTS (
+                SELECT 1 FROM app.refresh_tokens r
+                WHERE r.replaced_by = s.id AND r.id NOT IN (SELECT id FROM stale)
+              )
+              ORDER BY s.created_at
+              LIMIT ${PURGE_BATCH}
+            )
+            RETURNING 1
+          )
+          SELECT count(*)::int AS n FROM d`);
+        const n = Number(rows[0]?.n ?? 0);
+        total += n;
+        if (n < PURGE_BATCH) return total;
+      }
     },
 
     /** Com `tx`, roda dentro da transação do chamador (o advisory lock vale até o commit dela). */
