@@ -92,6 +92,32 @@ pnpm dev                                  # web em :3000 e API em :4000
 | `pnpm audit:ci` | `pnpm audit` (deve dar 0 vulnerabilidades) |
 | `pnpm build` | Build de todos os pacotes |
 
+### Reinstalar as dependências do zero
+
+Para apagar todos os `node_modules` (raiz, `apps/*` e `packages/*`) e instalar tudo de novo, rode a partir da raiz do projeto:
+
+```bash
+# 1. Apagar todos os node_modules
+find . -name node_modules -type d -prune -exec rm -rf {} +
+
+# 2. Usar o Node 24 (lê o .nvmrc)
+eval "$(fnm env)" && fnm use 24
+
+# 3. Só se o comando pnpm não for encontrado
+corepack enable && corepack prepare pnpm@10.34.7 --activate
+
+# 4. Reinstalar exatamente as versões do pnpm-lock.yaml
+pnpm install --frozen-lockfile
+
+# 5. Subir o banco e rodar o projeto
+docker compose up -d
+pnpm dev
+```
+
+- O `@cash/shared` é recompilado sozinho antes de `dev`, `test`, `build`, `lint` e `typecheck`, e o `argon2` (nativo) é compilado pelo próprio `pnpm install`.
+- Os arquivos `apps/api/.env` e `apps/web/.env.local` não são afetados.
+- Os navegadores do Playwright ficam fora do `node_modules` (`~/Library/Caches/ms-playwright`). Se apagá-los também, reinstale com `pnpm --filter @cash/web exec playwright install chromium webkit`.
+
 ---
 
 ## Stack
