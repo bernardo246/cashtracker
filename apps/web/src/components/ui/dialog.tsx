@@ -45,6 +45,25 @@ function DialogContent({ className, children, ...props }: ComponentProps<typeof 
   );
 }
 
+// Tela cheia para o celular: ocupa toda a viewport (100dvh) e deixa o cabeçalho e o rodapé
+// por conta de quem usa; sem botão de fechar embutido nem sombra/borda de cartão.
+function DialogFullscreenContent({ className, children, ...props }: ComponentProps<typeof DialogPrimitive.Content>) {
+  return (
+    <DialogPortal>
+      <DialogPrimitive.Content
+        data-slot="fullscreen-sheet"
+        className={cn(
+          "fixed inset-0 z-50 flex h-dvh w-full flex-col bg-background text-text-primary outline-none data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom",
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </DialogPrimitive.Content>
+    </DialogPortal>
+  );
+}
+
 function DialogHeader({ className, ...props }: ComponentProps<"div">) {
   return <div data-slot="dialog-header" className={cn("flex flex-col gap-2", className)} {...props} />;
 }
@@ -86,6 +105,7 @@ export {
   DialogPortal,
   DialogOverlay,
   DialogContent,
+  DialogFullscreenContent,
   DialogHeader,
   DialogFooter,
   DialogTitle,

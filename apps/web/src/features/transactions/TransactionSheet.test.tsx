@@ -95,13 +95,43 @@ describe("TransactionSheet", () => {
     expect(call("POST")).toBeUndefined();
   });
 
-  it("abaixo de 768px usa o Drawer (bottom sheet)", async () => {
-    window.matchMedia = ((q: string) => ({
-      matches: false, media: q, addEventListener() {}, removeEventListener() {},
-    })) as unknown as typeof window.matchMedia;
+  describe("abaixo de 768px (celular)", () => {
+    beforeEach(() => {
+      window.matchMedia = ((q: string) => ({
+        matches: false, media: q, addEventListener() {}, removeEventListener() {},
+      })) as unknown as typeof window.matchMedia;
+    });
+
+    it("abre em tela cheia, com Salvar fixo no rodapé", async () => {
+      wrap(<TransactionSheet open onOpenChange={() => {}} />);
+      const sheet = document.querySelector("[data-slot='fullscreen-sheet']");
+      expect(sheet).toBeInTheDocument();
+      expect(sheet).toHaveClass("inset-0", "h-dvh");
+      expect(document.querySelector("[data-slot='drawer-content']")).not.toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Novo lançamento" })).toBeInTheDocument();
+      const footer = document.querySelector("[data-slot='sheet-footer']");
+      expect(footer).toContainElement(screen.getByRole("button", { name: "Salvar" }));
+      expect(await screen.findByRole("radio", { name: "Mercado" })).toBeInTheDocument();
+    });
+
+    it("botão Fechar fecha a tela", async () => {
+      const onOpenChange = vi.fn();
+      wrap(<TransactionSheet open onOpenChange={onOpenChange} />);
+      await userEvent.click(screen.getByRole("button", { name: "Fechar" }));
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+
+    it("não foca o valor ao abrir (o teclado não sobe sozinho)", async () => {
+      wrap(<TransactionSheet open onOpenChange={() => {}} />);
+      await screen.findByRole("radio", { name: "Mercado" });
+      expect(screen.getByLabelText("Valor")).not.toHaveFocus();
+    });
+  });
+
+  it("no desktop abre como diálogo e foca o valor", async () => {
     wrap(<TransactionSheet open onOpenChange={() => {}} />);
-    expect(document.querySelector("[data-slot='drawer-content']")).toBeInTheDocument();
-    expect(await screen.findByRole("radio", { name: "Mercado" })).toBeInTheDocument();
+    expect(document.querySelector("[data-slot='dialog-content']")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("Valor")).toHaveFocus());
   });
 
   it("não mostra Excluir na criação", () => {
