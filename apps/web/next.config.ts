@@ -10,6 +10,7 @@ export function buildRewrites(apiUrl: string | undefined) {
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@cash/shared"],
+  allowedDevOrigins: ['192.168.2.157'],
   agentRules: false,
   rewrites() {
     return Promise.resolve(buildRewrites(process.env.API_URL));
