@@ -9,3 +9,5 @@ overrides:
   "undici@>=8.0.0 <8.12.2": "^8.12.2" # jsdom > undici — GHSA-xjj6-f33q-929c e outros
   "fast-uri@>=4.0.0 <4.2.3": "^4.2.3" # fastify > @fastify/ajv-compiler > fast-uri
   "fast-uri@>=3.0.0 <3.1.9": "^3.1.9" # fastify > @fastify/ajv-compiler > ajv > fast-uri
+  "glob@>=9.0.0 <14.0.2": "^14.0.2"   # @serwist/next > glob — GHSA-3g3m-2fjr-6pw4
+  "minimatch@>=7.0.0 <11.0.1": "^11.0.1" # eslint > minimatch — GHSA-g3hv-75wg-m249
