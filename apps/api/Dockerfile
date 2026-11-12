@@ -1,6 +1,6 @@
 # Build com contexto na raiz do repositório:
 #   docker build -f apps/api/Dockerfile -t cash-api .
-FROM node:24-alpine AS base
+FROM node:26-alpine AS base
 RUN corepack enable && corepack prepare pnpm@10.34.7 --activate
 WORKDIR /repo
 
@@ -21,7 +21,7 @@ RUN pnpm install --offline --frozen-lockfile \
   && cp -r apps/api/dist /out/dist
 
 # 3) runtime: só dependências de produção, usuário não-root
-FROM node:24-alpine AS runtime
+FROM node:26-alpine AS runtime
 ENV NODE_ENV=production
 # Aplica patches do Alpine e remove npm/corepack (não usados em runtime; trazem CVEs próprias)
 RUN apk upgrade --no-cache \
