@@ -1,6 +1,6 @@
 # Guia de deploy e publicação
 
-Passo a passo para publicar o Cash Tracker **a custo zero**: Supabase (Postgres), Brevo (e-mail), Render (API em Docker), Vercel (web), Google Cloud (login) e cron-job.org (keep-alive). Segue a spec §13.
+Passo a passo para publicar o Cash Tracker **a custo zero**: Supabase (Postgres), Brevo (e-mail), Render (API em Docker), Vercel (web), Google Cloud (login) e GitHub Actions (keep-alive do Supabase). Segue a spec §13.
 
 Faça na ordem abaixo. Há uma dependência circular entre Render e Vercel (cada um precisa da URL do outro); o guia resolve isso criando a API primeiro com valores provisórios, que são corrigidos no passo 5.
 
@@ -152,12 +152,20 @@ Siga [`setup-google-oauth.md`](setup-google-oauth.md) usando `<app>` do passo 5.
 
 ---
 
-## 7. cron-job.org (keep-alive)
+## 7. Keep-alive do Supabase (GitHub Actions)
 
-1. Crie uma conta em https://cron-job.org.
-2. Novo cron job: URL `https://<app>/api/health`, método **GET**, a cada **10 minutos**.
+O Supabase Free pausa o projeto após 7 dias sem atividade. O workflow [`supabase-keepalive.yml`](../.github/workflows/supabase-keepalive.yml) faz `SELECT 1` **direto no banco** uma vez por dia, sem passar pelo Render. O Render pode dormir: a primeira visita só espera o cold start (~50 s).
 
-O `/health` faz `SELECT 1` no banco; assim o ping mantém o Render acordado e o Supabase ativo.
+1. No Supabase, **SQL Editor**, crie um papel só para o ping. Ele consegue conectar, mas não recebe permissão em nenhuma tabela. Troque `<senha-forte>` por uma senha gerada por você:
+   ```sql
+   create role keepalive with login password '<senha-forte>';
+   ```
+2. Monte a URL do **Session pooler** (a mesma do `DATABASE_URL` do Render), trocando usuário e senha:
+   `postgresql://keepalive.<project-ref>:<senha-forte>@<host-do-pooler>:5432/postgres?sslmode=require`
+3. No GitHub: **Settings → Secrets and variables → Actions → New repository secret**, nome `SUPABASE_KEEPALIVE_URL`, valor = a URL acima.
+4. Em **Actions → Supabase keep-alive → Run workflow**, rode uma vez e confira que ficou verde.
+
+> O GitHub desativa workflows agendados em repositórios públicos sem nenhum commit há 60 dias. Se isso acontecer, ele avisa por e-mail; é só reativar em Actions.
 
 ---
 
@@ -168,7 +176,7 @@ O `/health` faz `SELECT 1` no banco; assim o ping mantém o Render acordado e o 
 - [ ] "Esqueceu a sua senha?" recebe o e-mail (confira também o spam).
 - [ ] Login com Google funciona.
 - [ ] Instalar o PWA no Android (botão "Instalar app") e no iPhone (Compartilhar → Adicionar à Tela de Início).
-- [ ] Os logs do Render não mostram erros de configuração; o job no cron-job.org aparece como bem-sucedido.
+- [ ] Os logs do Render não mostram erros de configuração; o workflow **Supabase keep-alive** aparece verde.
 
 ---
 
@@ -182,6 +190,6 @@ A URL `*.onrender.com` é acessível publicamente. Quem a chamar direto contorna
 |---|---|
 | Build da Vercel falha | `API_URL` não definida, ou a opção de incluir arquivos fora do Root Directory desligada |
 | API não sobe no Render | Variável faltando ou inválida (veja o log); `DATABASE_URL` sem `?sslmode=require` ou da conexão direta em vez do Session pooler |
-| Primeira requisição demora ~50 s | Instância Free dormindo; confira o job do cron-job.org |
+| Primeira requisição demora ~50 s | Instância Free do Render dormindo (esperado; o keep-alive só cobre o Supabase) |
 | `redirect_uri_mismatch` | `GOOGLE_REDIRECT_URI` diferente da cadastrada no Google, ou teste em preview |
 | Limite de taxa pega todos como um IP só | `TRUST_PROXY_HOPS` incorreto (deve ser `2` em produção) |

@@ -158,7 +158,7 @@ As versões exatas estão no [plano de implementação](docs/superpowers/plans/2
 | 13 | **Somente BRL** | Escopo da v1 | Multi-moeda |
 | 14 | **Categorias arquivadas, não excluídas**, quando têm lançamentos | Preserva o histórico dos gráficos de meses passados | Exclusão em cascata |
 | 15 | **Isolamento por `user_id` do JWT em toda consulta** | Um usuário nunca acessa dados de outro | RLS do Supabase (desnecessário, pois só a API acessa o banco) |
-| 16 | **Ping de keep-alive gratuito** (cron-job.org → `https://<app>.vercel.app/api/health` a cada 10 min; o `/health` faz `SELECT 1`, mantendo também o Supabase ativo) | O Render free dorme após 15 min, e acordar leva ~50s. As 750 h/mês grátis cobrem 1 serviço 24/7 | Aceitar o cold start |
+| 16 | **Keep-alive só do Supabase**: GitHub Actions faz `SELECT 1` direto no banco uma vez por dia, com um papel sem acesso às tabelas; o Render pode dormir | Pingar o `/health` a cada 10 min esbarrava no limite de taxa; o cold start de ~50 s do Render é aceitável | Ping no `/health` via cron-job.org |
 | 17 | **PWA** em vez de app nativo | Instalável sem App Store/Play Store e sem custo | React Native / lojas |
 | 18 | **Somente tema escuro** | Segue o Verdant (dark-first); um tema só reduz estados a testar | Claro + escuro |
 | 19 | **Build do web com `next build --webpack`** | O plugin Serwist (service worker do PWA) exige webpack; o dev usa Turbopack | Build com Turbopack |
@@ -234,11 +234,11 @@ O visual combina dois documentos da raiz do repositório:
 | Serviço | Uso | Plano | Limitações conhecidas |
 |---|---|---|---|
 | Vercel | Frontend + proxy `/api/*` | Hobby (grátis) | Uso não comercial |
-| Render | API em Docker | Free | Dorme após 15 min sem tráfego (mitigado com ping); 750 h/mês |
-| Supabase | Postgres | Free | Projeto pausa após 7 dias sem atividade (o ping na API mantém atividade); 500 MB |
+| Render | API em Docker | Free | Dorme após 15 min sem tráfego (cold start de ~50 s, aceito); 750 h/mês |
+| Supabase | Postgres | Free | Projeto pausa após 7 dias sem atividade (o keep-alive diário evita); 500 MB |
 | Brevo | E-mail de redefinição de senha | Free | 300 e-mails/dia; remetente sem domínio próprio pode cair no spam |
 | Google Cloud | OAuth 2.0 | Grátis | Escopos básicos (`openid email profile`) não exigem verificação do app |
-| cron-job.org | Keep-alive | Grátis | — |
+| GitHub Actions | Keep-alive do Supabase | Grátis | Agendamento pode atrasar alguns minutos |
 
 Passo a passo completo em [`docs/deploy.md`](docs/deploy.md).
 
